@@ -1,4 +1,4 @@
-﻿import pymysql
+import pymysql
 pymysql.install_as_MySQLdb()
 import os
 from flask import Flask
@@ -20,8 +20,8 @@ app.config['MYSQL_HOST'] = os.getenv('DB_HOST')
 app.config['MYSQL_USER'] = os.getenv('DB_USER')
 app.config['MYSQL_PASSWORD'] = os.getenv('DB_PASSWORD') 
 app.config['MYSQL_DB'] = os.getenv('DB_NAME')
-app.config['MYSQL_PORT'] = int(os.getenv('DB_PORT'))
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET') 
+app.config['MYSQL_PORT'] = int(os.getenv('DB_PORT', '3306'))
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET', 'dev-secret-change-me')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=12)
 
 
