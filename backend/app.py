@@ -11,6 +11,7 @@ from pos import pos_bp
 from procurement import procurement_bp
 from flask_cors import CORS
 from stock_receiving import stock_receiving_bp
+from branch import branch_bp
 load_dotenv()
 
 app = Flask(__name__)
@@ -33,6 +34,7 @@ app.register_blueprint(inventory_bp)
 app.register_blueprint(pos_bp)
 app.register_blueprint(procurement_bp)
 app.register_blueprint(stock_receiving_bp)
+app.register_blueprint(branch_bp)
 
 if __name__ == '__main__':
     app.run(debug=True)
