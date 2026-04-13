@@ -18,7 +18,7 @@ import AdminFooter from "../../components/admin/AdminFooter";
 import CreateUserModal from "../../components/admin/CreateUserModal";
 import { getToken } from "../../hooks/useAuth";
 
-const PROD_API_BASE_URL = "https://web-production-2c7737.up.railway.app";
+const PROD_API_BASE_URL = "https://web-production-783f2.up.railway.app";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || PROD_API_BASE_URL;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -338,7 +338,7 @@ export default function UsersPage() {
         }}
       />
 
-      <div className="w-full max-w-450 mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 flex flex-col gap-5">
+      <div className="w-full max-w-450 mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 flex flex-col gap-4 sm:gap-5">
         {/* ── Header Card ──────────────────────────────────────────────────── */}
         <AdminHeader
           onMenuClick={() => setSidebarOpen(true)}
@@ -347,22 +347,22 @@ export default function UsersPage() {
         />
 
         {/* ── User Management Bar ──────────────────────────────────────────── */}
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <h2
-              className="font-bold text-xl tracking-wide"
+              className="font-bold text-xl sm:text-xl tracking-wide"
               style={{ color: "rgba(193,227,255,0.9)" }}
             >
               User Management
             </h2>
-            <p className="text-xs mt-0.5" style={{ color: "rgba(193,227,255,0.5)" }}>
+            <p className="text-xs sm:text-xs mt-0.5" style={{ color: "rgba(193,227,255,0.5)" }}>
               Manage accounts, roles, and access across all branches
             </p>
           </div>
           <button
             onClick={fetchUsers}
             disabled={isFetchingUsers}
-            className="flex items-center gap-2 h-9 px-4 rounded-lg text-sm font-bold transition-opacity hover:opacity-80"
+            className="flex items-center gap-2 h-9 sm:h-9 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-opacity hover:opacity-80 self-start sm:self-auto"
             style={{
               background: "rgba(255,255,255,0.1)",
               color: "rgba(193,227,255,0.9)",
@@ -371,16 +371,16 @@ export default function UsersPage() {
               opacity: isFetchingUsers ? 0.6 : 1,
             }}
           >
-            <UserCog size={15} />
+            <UserCog size={13} className="sm:w-4 sm:h-4" />
             {isFetchingUsers ? "Syncing..." : "Refresh"}
           </button>
         </div>
 
         {/* ── KPI Cards ────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Total Users */}
           <div
-            className="rounded-xl p-5 relative overflow-hidden"
+            className="rounded-xl p-3 sm:p-4 lg:p-5 relative overflow-hidden"
             style={{
               background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(233,241,255,0.96) 100%)",
               border: "1px solid rgba(77,108,196,0.24)",
@@ -392,11 +392,11 @@ export default function UsersPage() {
               className="absolute top-3 right-3 p-1.5 rounded-lg"
               style={{ background: "rgba(0,59,205,0.1)" }}
             >
-              <Users size={18} style={{ color: "#003bcd" }} />
+              <Users size={16} className="sm:w-5 sm:h-5" style={{ color: "#003bcd" }} />
             </div>
-            <p className="text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>TOTAL USERS</p>
+            <p className="text-sm sm:text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>TOTAL USERS</p>
             <p className="text-xs font-semibold mt-0.5" style={{ color: "#636363" }}>All registered accounts</p>
-            <p className="font-extrabold mt-2 leading-none" style={{ color: "#003bcd", fontSize: "3rem" }}>
+            <p className="font-extrabold mt-2 leading-none" style={{ color: "#003bcd", fontSize: "clamp(1.5rem, 6vw, 3rem)" }}>
               {isFetchingUsers ? "—" : totalUsers}
             </p>
             <div className="flex items-center gap-1 mt-3">
@@ -406,7 +406,7 @@ export default function UsersPage() {
 
           {/* Active Users */}
           <div
-            className="rounded-xl p-5 relative overflow-hidden"
+            className="rounded-xl p-3 sm:p-4 lg:p-5 relative overflow-hidden"
             style={{
               background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(233,241,255,0.96) 100%)",
               border: "1px solid rgba(77,108,196,0.24)",
@@ -418,11 +418,11 @@ export default function UsersPage() {
               className="absolute top-3 right-3 p-1.5 rounded-lg"
               style={{ background: "rgba(0,191,44,0.1)" }}
             >
-              <UserCheck size={18} style={{ color: "#00bf2c" }} />
+              <UserCheck size={16} className="sm:w-5 sm:h-5" style={{ color: "#00bf2c" }} />
             </div>
-            <p className="text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>ACTIVE</p>
+            <p className="text-sm sm:text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>ACTIVE</p>
             <p className="text-xs font-semibold mt-0.5" style={{ color: "#636363" }}>Currently active accounts</p>
-            <p className="font-extrabold mt-2 leading-none" style={{ color: "#00bf2c", fontSize: "3rem" }}>
+            <p className="font-extrabold mt-2 leading-none" style={{ color: "#00bf2c", fontSize: "clamp(1.5rem, 6vw, 3rem)" }}>
               {isFetchingUsers ? "—" : activeUsers}
             </p>
             <div className="flex items-center gap-1 mt-3">
@@ -434,7 +434,7 @@ export default function UsersPage() {
 
           {/* Admins */}
           <div
-            className="rounded-xl p-5 relative overflow-hidden"
+            className="rounded-xl p-3 sm:p-4 lg:p-5 relative overflow-hidden"
             style={{
               background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(233,241,255,0.96) 100%)",
               border: "1px solid rgba(77,108,196,0.24)",
@@ -446,11 +446,11 @@ export default function UsersPage() {
               className="absolute top-3 right-3 p-1.5 rounded-lg"
               style={{ background: "rgba(203,60,255,0.1)" }}
             >
-              <ShieldCheck size={18} style={{ color: "#cb3cff" }} />
+              <ShieldCheck size={16} className="sm:w-5 sm:h-5" style={{ color: "#cb3cff" }} />
             </div>
-            <p className="text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>ADMINS</p>
+            <p className="text-sm sm:text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>ADMINS</p>
             <p className="text-xs font-semibold mt-0.5" style={{ color: "#636363" }}>Administrator accounts</p>
-            <p className="font-extrabold mt-2 leading-none" style={{ color: "#cb3cff", fontSize: "3rem" }}>
+            <p className="font-extrabold mt-2 leading-none" style={{ color: "#cb3cff", fontSize: "clamp(1.5rem, 6vw, 3rem)" }}>
               {isFetchingUsers ? "—" : adminCount}
             </p>
             <div className="flex items-center gap-1 mt-3">
@@ -460,7 +460,7 @@ export default function UsersPage() {
 
           {/* Cashiers */}
           <div
-            className="rounded-xl p-5 relative overflow-hidden"
+            className="rounded-xl p-3 sm:p-4 lg:p-5 relative overflow-hidden"
             style={{
               background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(233,241,255,0.96) 100%)",
               border: "1px solid rgba(77,108,196,0.24)",
@@ -472,11 +472,11 @@ export default function UsersPage() {
               className="absolute top-3 right-3 p-1.5 rounded-lg"
               style={{ background: "rgba(179,147,49,0.1)" }}
             >
-              <UserCog size={18} style={{ color: "#b39331" }} />
+              <UserCog size={16} className="sm:w-5 sm:h-5" style={{ color: "#b39331" }} />
             </div>
-            <p className="text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>CASHIERS</p>
+            <p className="text-sm sm:text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>CASHIERS</p>
             <p className="text-xs font-semibold mt-0.5" style={{ color: "#636363" }}>POS operator accounts</p>
-            <p className="font-extrabold mt-2 leading-none" style={{ color: "#b39331", fontSize: "3rem" }}>
+            <p className="font-extrabold mt-2 leading-none" style={{ color: "#b39331", fontSize: "clamp(1.5rem, 6vw, 3rem)" }}>
               {isFetchingUsers ? "—" : cashierCount}
             </p>
             <div className="flex items-center gap-1 mt-3">
@@ -487,7 +487,7 @@ export default function UsersPage() {
 
         {/* ── Users Table Card ──────────────────────────────────────────────── */}
         <div
-          className="rounded-2xl p-6"
+          className="rounded-2xl p-4 sm:p-6"
           style={{
             border: "1px solid rgba(115,139,205,0.24)",
             background: "linear-gradient(180deg, #ffffff 0%, #f4f7ff 100%)",

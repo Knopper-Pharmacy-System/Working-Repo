@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDown, PackageSearch, RefreshCw, Search, ScanBarcode, Tag, X } from "lucide-react";
+import { ChevronDown, PackageSearch, RefreshCw, Search, Tag, Wifi, WifiOff, X } from "lucide-react";
 import AdminSidebar from "../../components/admin/AdminSidebar";
 import AdminHeader from "../../components/admin/AdminHeader";
 import AdminFooter from "../../components/admin/AdminFooter";
@@ -135,7 +135,7 @@ type ProductEditorDraft = {
   suppliers: SupplierEntry[];
 };
 
-const PROD_API_BASE_URL = "https://web-production-2c7737.up.railway.app";
+const PROD_API_BASE_URL = "https://web-production-783f2.up.railway.app";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || PROD_API_BASE_URL;
 const BRANCHES: BranchOption[] = [
   { id: 1, label: "BMC MAIN" },
@@ -195,6 +195,9 @@ const generateSystemBarcode = (productId: number) => {
 };
 
 const roundTo2 = (value: number) => Number(value.toFixed(2));
+
+const formatTime = (value: Date) =>
+  value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 const computeNetCost = (draft: ProductEditorDraft) => {
   const discountPercent = draft.discounts.reduce((sum, value) => sum + value, 0);
@@ -672,9 +675,6 @@ export default function AdminProductsPage() {
     (sum, product) => sum + product.stock * product.price,
     0,
   );
-  const noBarcodeCount = filteredProducts.filter(
-    (product) => product.barcode === "No Barcode",
-  ).length;
   const selectedBranchLabel =
     BRANCHES.find((branch) => branch.id === selectedBranchId)?.label ||
     "Unknown Branch";
@@ -708,7 +708,7 @@ export default function AdminProductsPage() {
         onClose={() => setSidebarOpen(false)}
         activeItem="Products"
       />
-      <div className="relative z-10 w-full max-w-450 mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 flex flex-col gap-5">
+      <div className="relative z-10 w-full max-w-450 mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pt-6 pb-20 lg:pb-6 flex flex-col gap-5">
         <AdminHeader
           onMenuClick={() => setSidebarOpen(true)}
           currentTime={currentTime}
@@ -795,45 +795,45 @@ export default function AdminProductsPage() {
           </div>
         ) : null}
 
-        <div className="rounded-[28px] p-5 sm:p-6" style={PANEL_CARD_STYLE}>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-            <div className="rounded-xl p-5" style={METRIC_CARD_STYLE}>
+        <div className="rounded-[28px] p-4 sm:p-5 lg:p-6" style={PANEL_CARD_STYLE}>
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:mb-5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+            <div className="rounded-xl p-3 sm:p-4 lg:p-5" style={METRIC_CARD_STYLE}>
               <p
-                className="text-base font-extrabold tracking-wide uppercase"
+                className="text-sm sm:text-base font-extrabold tracking-wide uppercase"
                 style={{ color: "#062d8c" }}
               >
                 Products
               </p>
               <p
                 className="mt-2 leading-none"
-                style={{ color: "#062d8c", fontSize: "3rem", fontWeight: 800 }}
+                style={{ color: "#062d8c", fontSize: "clamp(1.3rem, 5vw, 2.4rem)", fontWeight: 800 }}
               >
                 {filteredProducts.length}
               </p>
               <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600">
-                <PackageSearch size={14} /> Searchable SKUs
+                <PackageSearch size={14} /> Catalog items
               </div>
             </div>
-            <div className="rounded-xl p-5" style={METRIC_CARD_STYLE}>
+            <div className="rounded-xl p-3 sm:p-4 lg:p-5" style={METRIC_CARD_STYLE}>
               <p
-                className="text-base font-extrabold tracking-wide uppercase"
+                className="text-sm sm:text-base font-extrabold tracking-wide uppercase"
                 style={{ color: "#062d8c" }}
               >
                 Units
               </p>
               <p
                 className="mt-2 leading-none"
-                style={{ color: "#1536ef", fontSize: "3rem", fontWeight: 800 }}
+                style={{ color: "#1536ef", fontSize: "clamp(1.3rem, 5vw, 2.4rem)", fontWeight: 800 }}
               >
                 {totalStock.toLocaleString()}
               </p>
               <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600">
-                <Tag size={14} /> On-hand quantity
+                <Tag size={14} /> Stock on hand
               </div>
             </div>
-            <div className="rounded-xl p-5" style={METRIC_CARD_STYLE}>
+            <div className="rounded-xl p-3 sm:p-4 lg:p-5" style={METRIC_CARD_STYLE}>
               <p
-                className="text-base font-extrabold tracking-wide uppercase"
+                className="text-sm sm:text-base font-extrabold tracking-wide uppercase"
                 style={{ color: "#062d8c" }}
               >
                 Catalog Value
@@ -842,58 +842,41 @@ export default function AdminProductsPage() {
                 className="mt-2 leading-none"
                 style={{
                   color: "#00a83d",
-                  fontSize: "2.2rem",
+                  fontSize: "clamp(1.1rem, 4.5vw, 2rem)",
                   fontWeight: 800,
                 }}
               >{`₱${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}</p>
               <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600">
-                <Tag size={14} /> Stock × price
-              </div>
-            </div>
-            <div className="rounded-xl p-5" style={METRIC_CARD_STYLE}>
-              <p
-                className="text-base font-extrabold tracking-wide uppercase"
-                style={{ color: "#062d8c" }}
-              >
-                No Barcode
-              </p>
-              <p
-                className="mt-2 leading-none"
-                style={{ color: "#c89400", fontSize: "3rem", fontWeight: 800 }}
-              >
-                {noBarcodeCount}
-              </p>
-              <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600">
-                <ScanBarcode size={14} /> Needs barcode setup
+                <Tag size={14} /> Estimated value
               </div>
             </div>
           </div>
 
           <div
-            className="mb-4 flex h-11 max-w-sm items-center gap-2 rounded-2xl px-4"
+            className="mb-3 sm:mb-4 flex h-9 sm:h-11 items-center gap-2 rounded-2xl px-3 sm:px-4"
             style={{
               background:
                 "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(242,246,255,0.94) 100%)",
               border: "1px solid rgba(112,136,214,0.28)",
             }}
           >
-            <Search size={14} className="text-[#707070]" />
+            <Search size={14} className="text-[#707070] flex-shrink-0" />
             <input
               type="text"
               placeholder="Search product, barcode, category..."
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              className="flex-1 bg-transparent text-sm outline-none text-[#001d63]"
+              className="flex-1 bg-transparent text-xs sm:text-sm outline-none text-[#001d63]"
             />
           </div>
 
-          <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="mb-3 sm:mb-4 flex flex-wrap items-center gap-1.5 sm:gap-2">
             {CATEGORY_FILTERS.map((filter) => (
               <button
                 key={filter.value}
                 type="button"
                 onClick={() => setSelectedCategoryFilter(filter.value)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold uppercase transition-colors ${
+                className={`rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-bold uppercase transition-colors ${
                   selectedCategoryFilter === filter.value
                     ? "bg-[#062d8c] text-white"
                     : "bg-white text-[#12337f] border border-[#c7d6fb] hover:bg-blue-50"
@@ -904,8 +887,8 @@ export default function AdminProductsPage() {
             ))}
           </div>
 
-          <div className="overflow-x-auto rounded-xl" style={TABLE_CARD_STYLE}>
-            <table className="w-full min-w-245 text-sm">
+          <div className="hidden lg:block overflow-x-auto rounded-xl" style={TABLE_CARD_STYLE}>
+            <table className="w-full min-w-245 text-xs sm:text-sm">
               <thead>
                 <tr className="bg-[#e8eefb] text-[#062d8c] border-b border-[#dbe3f7]">
                   {[
@@ -919,7 +902,7 @@ export default function AdminProductsPage() {
                   ].map((label) => (
                     <th
                       key={label}
-                      className="px-3 py-2.5 text-left text-xs font-bold"
+                      className="px-2 sm:px-3 py-2 text-left text-xs font-bold"
                     >
                       {label}
                     </th>
@@ -935,17 +918,52 @@ export default function AdminProductsPage() {
                     style={{ background: index % 2 === 0 ? '#f7f9ff' : '#edf2ff' }}
                     title="Click to edit product details"
                   >
-                    <td className="px-3 py-2 text-[#001d63] font-semibold">{product.name}</td>
-                    <td className="px-3 py-2 text-[#001d63]">{product.productId}</td>
-                    <td className="px-3 py-2 text-[#001d63]">{product.category}</td>
-                    <td className="px-3 py-2 text-[#001d63] font-mono">{product.barcode}</td>
-                    <td className="px-3 py-2 text-[#001d63]">{product.location}</td>
-                    <td className="px-3 py-2 text-[#001d63]">{product.price.toFixed(2)}</td>
-                    <td className="px-3 py-2 text-[#001d63]">{product.stock}</td>
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[#001d63] font-semibold text-xs sm:text-sm">{product.name}</td>
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[#001d63] text-xs sm:text-sm">{product.productId}</td>
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[#001d63] text-xs sm:text-sm">{product.category}</td>
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[#001d63] font-mono text-xs sm:text-sm">{product.barcode}</td>
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[#001d63] text-xs sm:text-sm">{product.location}</td>
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[#001d63] text-xs sm:text-sm">{product.price.toFixed(2)}</td>
+                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[#001d63] text-xs sm:text-sm">{product.stock}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="block lg:hidden">
+            <div className="space-y-4">
+              {isLoading ? (
+                <p className="text-center py-10 text-slate-500">Loading products...</p>
+              ) : filteredProducts.length === 0 ? (
+                <p className="text-center py-10 text-slate-500">No products found.</p>
+              ) : (
+                paginatedProducts.map((product, index) => (
+                  <div
+                    key={product.id}
+                    onClick={() => openProductModal(product)}
+                    className="rounded-xl p-4 cursor-pointer transition-colors hover:bg-[#e2ebff]"
+                    style={{
+                      ...METRIC_CARD_STYLE,
+                      background: index % 2 === 0 ? '#f7f9ff' : '#edf2ff',
+                    }}
+                    title="Click to edit product details"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-semibold text-sm text-[#062d8c] flex-1">{product.name}</h3>
+                      <span className="text-xs text-slate-500 ml-2">ID: {product.productId}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                      <div><strong>Category:</strong> {product.category}</div>
+                      <div><strong>Barcode:</strong> {product.barcode}</div>
+                      <div><strong>Location:</strong> {product.location}</div>
+                      <div><strong>Price:</strong> ₱{product.price.toFixed(2)}</div>
+                      <div className="col-span-2"><strong>Stock:</strong> {product.stock}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           <div className="mt-4 flex items-center justify-between rounded-xl border border-[#dbe3f7] bg-white/80 px-4 py-3 text-sm text-[#12337f]">
@@ -1569,6 +1587,29 @@ export default function AdminProductsPage() {
           </div>
         ) : null}
         <AdminFooter lastSync={lastSync} />
+
+        <div className="block xl:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 flex items-center justify-between z-50 shadow-lg">
+          <div className="text-xs text-slate-600">
+            Sync: {lastSync ? formatTime(lastSync) : "--:--:--"}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-600">STATUS:</span>
+            <div
+              className={`flex items-center gap-1.5 h-8 px-3 rounded-xl ${
+                isOnline ? "bg-[#0c8628]" : "bg-[#cc5500]"
+              }`}
+            >
+              {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
+              <span
+                className={`text-xs font-semibold ${
+                  isOnline ? "text-[#acf9be]" : "text-white"
+                }`}
+              >
+                {isOnline ? "ONLINE" : "OFFLINE"}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

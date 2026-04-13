@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import AdminSidebar from "../../components/admin/AdminSidebar";
 import AdminHeader from "../../components/admin/AdminHeader";
+import { getPurchaseOrders } from "../../api/procurement";
 
 // --- Types -------------------------------------------------------------------
 
@@ -46,165 +47,6 @@ interface PurchaseOrder {
 }
 
 // --- Mock Data ---------------------------------------------------------------
-
-const SAMPLE_POS: PurchaseOrder[] = [
-  {
-    id: "PO-2026-001",
-    date: "03/01/2026",
-    supplier: "Norvic Drugs Corporation",
-    deliverTo: "BMC MAIN",
-    itemCount: 12,
-    subtotal: 13607.14,
-    total: 15240.0,
-    payTerm: "30 Days",
-    status: "Approved",
-    expectedDate: "03/10/2026",
-    refDoc: "REF-2026-001",
-  },
-  {
-    id: "PO-2026-002",
-    date: "03/05/2026",
-    supplier: "VMED Medical Co",
-    deliverTo: "DIVERSION BRANCH",
-    itemCount: 5,
-    subtotal: 3080.36,
-    total: 3450.0,
-    payTerm: "COD",
-    status: "Pending",
-    expectedDate: "03/15/2026",
-    refDoc: "REF-2026-002",
-  },
-  {
-    id: "PO-2026-003",
-    date: "03/08/2026",
-    supplier: "Milaor Trading Corporation",
-    deliverTo: "PANGANIBAN BRANCH",
-    itemCount: 8,
-    subtotal: 7044.64,
-    total: 7890.0,
-    payTerm: "15 Days",
-    status: "Draft",
-    expectedDate: "03/20/2026",
-    refDoc: "REF-2026-003",
-  },
-  {
-    id: "PO-2026-004",
-    date: "03/10/2026",
-    supplier: "Zuellig Pharma Corporation",
-    deliverTo: "BMC MAIN",
-    itemCount: 20,
-    subtotal: 40714.29,
-    total: 45600.0,
-    payTerm: "90 Days",
-    status: "Delivered",
-    expectedDate: "03/18/2026",
-    refDoc: "REF-2026-004",
-  },
-  {
-    id: "PO-2026-005",
-    date: "03/12/2026",
-    supplier: "Del Monte Philippines",
-    deliverTo: "DIVERSION BRANCH",
-    itemCount: 3,
-    subtotal: 1875.0,
-    total: 2100.0,
-    payTerm: "7 Days",
-    status: "Cancelled",
-    expectedDate: "03/22/2026",
-    refDoc: "REF-2026-005",
-  },
-  {
-    id: "PO-2026-006",
-    date: "03/14/2026",
-    supplier: "Nestle Philippines Inc.",
-    deliverTo: "BMC MAIN",
-    itemCount: 15,
-    subtotal: 19955.36,
-    total: 22350.0,
-    payTerm: "30 Days",
-    status: "Pending",
-    expectedDate: "03/24/2026",
-    refDoc: "REF-2026-006",
-  },
-  {
-    id: "PO-2026-007",
-    date: "03/15/2026",
-    supplier: "Century Pacific Food Inc.",
-    deliverTo: "PANGANIBAN BRANCH",
-    itemCount: 7,
-    subtotal: 5062.5,
-    total: 5670.0,
-    payTerm: "COD",
-    status: "Approved",
-    expectedDate: "03/25/2026",
-    refDoc: "REF-2026-007",
-  },
-  {
-    id: "PO-2026-008",
-    date: "03/16/2026",
-    supplier: "SPL05 Medical Supplies",
-    deliverTo: "BMC MAIN",
-    itemCount: 4,
-    subtotal: 1687.5,
-    total: 1890.0,
-    payTerm: "15 Days",
-    status: "Draft",
-    expectedDate: "03/26/2026",
-    refDoc: "REF-2026-008",
-  },
-  {
-    id: "PO-2026-009",
-    date: "03/17/2026",
-    supplier: "Pascual Labs",
-    deliverTo: "DIVERSION BRANCH",
-    itemCount: 11,
-    subtotal: 16892.86,
-    total: 18920.0,
-    payTerm: "30 Days",
-    status: "Delivered",
-    expectedDate: "03/27/2026",
-    refDoc: "REF-2026-009",
-  },
-  {
-    id: "PO-2026-010",
-    date: "03/17/2026",
-    supplier: "United Lab Inc.",
-    deliverTo: "BMC MAIN",
-    itemCount: 9,
-    subtotal: 11116.07,
-    total: 12450.0,
-    payTerm: "7 Days",
-    status: "Partial",
-    expectedDate: "03/28/2026",
-    refDoc: "REF-2026-010",
-  },
-  {
-    id: "PO-2026-011",
-    date: "03/17/2026",
-    supplier: "Reckitt Benckiser Philippines",
-    deliverTo: "BMC MAIN",
-    itemCount: 6,
-    subtotal: 8482.14,
-    total: 9500.0,
-    payTerm: "COD",
-    status: "Approved",
-    expectedDate: "03/29/2026",
-    refDoc: "REF-2026-011",
-  },
-  {
-    id: "PO-2026-012",
-    date: "03/17/2026",
-    supplier: "Interpharm Inc.",
-    deliverTo: "PANGANIBAN BRANCH",
-    itemCount: 14,
-    subtotal: 21428.57,
-    total: 24000.0,
-    payTerm: "15 Days",
-    status: "Pending",
-    expectedDate: "04/02/2026",
-    refDoc: "REF-2026-012",
-  },
-];
 
 const ITEMS_PER_PAGE = 8;
 
@@ -298,6 +140,7 @@ export default function AdminPurchaseOrderList() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
 
   const [activeTab, setActiveTab] = useState<POStatus | "All">("All");
   const [search, setSearch] = useState("");
@@ -319,19 +162,47 @@ export default function AdminPurchaseOrderList() {
     };
   }, []);
 
+  useEffect(() => {
+    const fetchPurchaseOrders = async () => {
+      try {
+        const orders = await getPurchaseOrders();
+        // Transform the data to match the expected format
+        const transformedOrders: PurchaseOrder[] = orders.map(order => ({
+          id: `PO-${order.order_id}`,
+          date: order.order_date,
+          supplier: order.supplier,
+          deliverTo: order.branch,
+          itemCount: 0, // We'll need to get this from the API or calculate it
+          subtotal: order.total_amount,
+          total: order.total_amount,
+          payTerm: "COD" as PayTerm, // Default value, should come from API
+          status: order.status as POStatus,
+          expectedDate: order.order_date, // Default to order date
+          refDoc: `REF-${order.order_id}`,
+        }));
+        setPurchaseOrders(transformedOrders);
+      } catch (err) {
+        console.error('Failed to fetch purchase orders:', err);
+        setPurchaseOrders([]);
+      }
+    };
+
+    fetchPurchaseOrders();
+  }, []);
+
   // -- Stats --
-  const totalOrders = SAMPLE_POS.length;
-  const pendingCount = SAMPLE_POS.filter((p) => p.status === "Pending").length;
-  const approvedCount = SAMPLE_POS.filter(
+  const totalOrders = purchaseOrders.length;
+  const pendingCount = purchaseOrders.filter((p) => p.status === "Pending").length;
+  const approvedCount = purchaseOrders.filter(
     (p) => p.status === "Approved",
   ).length;
-  const deliveredCount = SAMPLE_POS.filter(
+  const deliveredCount = purchaseOrders.filter(
     (p) => p.status === "Delivered",
   ).length;
 
   // -- Filter + search --
   const filtered = useMemo(() => {
-    let data = SAMPLE_POS;
+    let data = purchaseOrders;
     if (activeTab !== "All") data = data.filter((p) => p.status === activeTab);
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -381,8 +252,8 @@ export default function AdminPurchaseOrderList() {
 
   const tabCount = (tab: POStatus | "All") =>
     tab === "All"
-      ? SAMPLE_POS.length
-      : SAMPLE_POS.filter((p) => p.status === tab).length;
+      ? purchaseOrders.length
+      : purchaseOrders.filter((p) => p.status === tab).length;
 
   const renderSortIcon = (field: keyof PurchaseOrder) =>
     sortField === field ? (

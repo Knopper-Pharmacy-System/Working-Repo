@@ -246,6 +246,7 @@ export default function AdminSidebar({
   const handleLogout = () => {
     console.log("Logging out...");
     logout();
+    navigate("/");
     onClose();
   };
 

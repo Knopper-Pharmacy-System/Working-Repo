@@ -1,14 +1,11 @@
-from flask import Blueprint, request, jsonify, Response
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from datetime import datetime, timedelta
+from datetime import datetime,timedelta
 from extensions import mysql
 from extensions import mysql, bcrypt, jwt
+
+
 pos_bp = Blueprint('pos', __name__)
-import json
-import csv
-from io import StringIO
-
-
 # POS - PROCESS SALE 
 @pos_bp.route('/pos/checkout', methods=['POST'])
 @jwt_required()
@@ -877,7 +874,6 @@ def get_shift_history():
         cur.close()
 
 #sales report per shift
-
 @pos_bp.route('/pos/shift-report/<int:target_shift_id>', methods=['GET'])
 @jwt_required()
 def get_shift_sales(target_shift_id):
@@ -984,792 +980,129 @@ def get_shift_sales(target_shift_id):
     finally:
         cur.close()
 
+#sales report 
 
-def _resolve_branch_scope(claims, raw_branch_id):
-    role = claims.get('role')
-    claim_branch = int(claims.get('branch'))
-
-    if raw_branch_id in [None, '', 'all']:
-        if role == 'admin':
-            return None
-        return claim_branch
-
-    requested = int(raw_branch_id)
-    if role != 'admin' and requested != claim_branch:
-        raise PermissionError('Access Denied: You can only view your assigned branch.')
-    return requested
-
-
-def _csv_response(filename, rows):
-    output = StringIO()
-    writer = csv.writer(output)
-    for row in rows:
-        writer.writerow(row)
-    content = output.getvalue()
-    output.close()
-    return Response(
-        content,
-        mimetype='text/csv',
-        headers={'Content-Disposition': f'attachment; filename={filename}'},
-    )
-
-
-@pos_bp.route('/pos/report-filters', methods=['GET'])
+@pos_bp.route('/pos/sales-report', methods=['GET'])
 @jwt_required()
-def get_report_filters():
+def get_sales_report():
+    import calendar
+
     claims = get_jwt()
-    role = claims.get('role')
+    current_branch_id = claims['branch']
 
-    if role not in ['admin', 'manager']:
-        return jsonify({'message': 'Access Denied.'}), 403
-
-    cur = mysql.connection.cursor()
-    try:
-        branch_scope = _resolve_branch_scope(claims, request.args.get('branch_id'))
-
-        if role == 'admin':
-            cur.execute('SELECT branch_id, branch_name, branch_code FROM BRANCHES ORDER BY branch_name ASC')
-            branches = [
-                {
-                    'branch_id': row[0],
-                    'branch_name': row[1],
-                    'branch_code': row[2],
-                }
-                for row in cur.fetchall()
-            ]
-        else:
-            cur.execute(
-                'SELECT branch_id, branch_name, branch_code FROM BRANCHES WHERE branch_id = %s',
-                (branch_scope,),
-            )
-            row = cur.fetchone()
-            branches = [] if not row else [{
-                'branch_id': row[0],
-                'branch_name': row[1],
-                'branch_code': row[2],
-            }]
-
-        if branch_scope is None:
-            cur.execute(
-                """
-                SELECT user_id, full_name
-                FROM USERS
-                WHERE LOWER(role) IN ('cashier', 'admin', 'manager') AND is_active = 1
-                ORDER BY full_name ASC
-                """
-            )
-        else:
-            cur.execute(
-                """
-                SELECT user_id, full_name
-                FROM USERS
-                WHERE branch_id = %s
-                  AND LOWER(role) IN ('cashier', 'admin', 'manager')
-                  AND is_active = 1
-                ORDER BY full_name ASC
-                """,
-                (branch_scope,),
-            )
-
-        cashiers = [
-            {
-                'user_id': row[0],
-                'full_name': row[1],
-            }
-            for row in cur.fetchall()
-        ]
-
-        return jsonify({'branches': branches, 'cashiers': cashiers}), 200
-    except PermissionError as auth_error:
-        return jsonify({'message': str(auth_error)}), 403
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        cur.close()
-
-
-@pos_bp.route('/pos/sales-dashboard-extras', methods=['GET'])
-@jwt_required()
-def get_sales_dashboard_extras():
-    claims = get_jwt()
     if claims.get('role') not in ['admin', 'manager']:
-        return jsonify({'message': 'Access Denied.'}), 403
+        return jsonify({"message": "Access Denied."}), 403
 
-    target_date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
-    cashier_id = request.args.get('cashier_id')
-
-    try:
-        branch_scope = _resolve_branch_scope(claims, request.args.get('branch_id'))
-    except PermissionError as auth_error:
-        return jsonify({'message': str(auth_error)}), 403
+    today       = datetime.now()
+    month_param = request.args.get('month', today.strftime('%Y-%m'))
 
     try:
-        selected_date = datetime.strptime(target_date, '%Y-%m-%d').date()
+        target = datetime.strptime(month_param, '%Y-%m')
     except ValueError:
-        return jsonify({'message': 'Invalid date format. Use YYYY-MM-DD.'}), 400
+        return jsonify({"message": "Invalid month format. Use YYYY-MM (e.g. 2026-03)."}), 400
 
-    previous_date = selected_date - timedelta(days=1)
-    week_start = selected_date - timedelta(days=6)
-    prev_week_start = selected_date - timedelta(days=13)
-    prev_week_end = selected_date - timedelta(days=7)
+    last_day  = calendar.monthrange(target.year, target.month)[1]
+    date_from = target.replace(day=1).strftime('%Y-%m-%d')
+    date_to   = target.replace(day=last_day).strftime('%Y-%m-%d')
 
-    cur = mysql.connection.cursor()
-    try:
-        where_parts = ["DATE(sh.sale_date) = %s", "sh.customer_type != 'VOIDED'"]
-        params = [selected_date]
-
-        if branch_scope is not None:
-            where_parts.append('sh.branch_id = %s')
-            params.append(branch_scope)
-        if cashier_id not in [None, '', 'all']:
-            where_parts.append('sh.user_id = %s')
-            params.append(int(cashier_id))
-
-        where_clause = ' AND '.join(where_parts)
-
-        # Day comparison
-        def day_summary(day_value):
-            local_where = ["DATE(sh.sale_date) = %s", "sh.customer_type != 'VOIDED'"]
-            local_params = [day_value]
-            if branch_scope is not None:
-                local_where.append('sh.branch_id = %s')
-                local_params.append(branch_scope)
-            if cashier_id not in [None, '', 'all']:
-                local_where.append('sh.user_id = %s')
-                local_params.append(int(cashier_id))
-
-            cur.execute(
-                f"""
-                SELECT
-                    COUNT(sh.sale_id),
-                    IFNULL(SUM(sh.total_amount), 0)
-                FROM SALES_HEADERS sh
-                WHERE {' AND '.join(local_where)}
-                """,
-                tuple(local_params),
-            )
-            row = cur.fetchone()
-
-            refund_where = ['DATE(sr.return_date) = %s']
-            refund_params = [day_value]
-            if branch_scope is not None:
-                refund_where.append('sr.branch_id = %s')
-                refund_params.append(branch_scope)
-            if cashier_id not in [None, '', 'all']:
-                refund_where.append('sr.user_id = %s')
-                refund_params.append(int(cashier_id))
-
-            cur.execute(
-                f"""
-                SELECT IFNULL(SUM(sr.total_refund_amount), 0)
-                FROM SALES_RETURNS sr
-                WHERE {' AND '.join(refund_where)}
-                """,
-                tuple(refund_params),
-            )
-            refunds = float(cur.fetchone()[0] or 0)
-
-            gross = float(row[1] or 0)
-            return {
-                'transactions': int(row[0] or 0),
-                'gross': round(gross, 2),
-                'refunds': round(refunds, 2),
-                'net': round(gross - refunds, 2),
-            }
-
-        today = day_summary(selected_date)
-        yesterday = day_summary(previous_date)
-
-        # Week comparison
-        def week_summary(start_day, end_day):
-            local_where = ["DATE(sh.sale_date) BETWEEN %s AND %s", "sh.customer_type != 'VOIDED'"]
-            local_params = [start_day, end_day]
-            if branch_scope is not None:
-                local_where.append('sh.branch_id = %s')
-                local_params.append(branch_scope)
-            if cashier_id not in [None, '', 'all']:
-                local_where.append('sh.user_id = %s')
-                local_params.append(int(cashier_id))
-
-            cur.execute(
-                f"""
-                SELECT COUNT(sh.sale_id), IFNULL(SUM(sh.total_amount), 0)
-                FROM SALES_HEADERS sh
-                WHERE {' AND '.join(local_where)}
-                """,
-                tuple(local_params),
-            )
-            row = cur.fetchone()
-
-            refund_where = ['DATE(sr.return_date) BETWEEN %s AND %s']
-            refund_params = [start_day, end_day]
-            if branch_scope is not None:
-                refund_where.append('sr.branch_id = %s')
-                refund_params.append(branch_scope)
-            if cashier_id not in [None, '', 'all']:
-                refund_where.append('sr.user_id = %s')
-                refund_params.append(int(cashier_id))
-
-            cur.execute(
-                f"""
-                SELECT IFNULL(SUM(sr.total_refund_amount), 0)
-                FROM SALES_RETURNS sr
-                WHERE {' AND '.join(refund_where)}
-                """,
-                tuple(refund_params),
-            )
-            refunds = float(cur.fetchone()[0] or 0)
-
-            gross = float(row[1] or 0)
-            return {
-                'transactions': int(row[0] or 0),
-                'gross': round(gross, 2),
-                'refunds': round(refunds, 2),
-                'net': round(gross - refunds, 2),
-            }
-
-        this_week = week_summary(week_start, selected_date)
-        last_week = week_summary(prev_week_start, prev_week_end)
-
-        # Hourly trend
-        cur.execute(
-            f"""
-            SELECT HOUR(sh.sale_date) AS hour_slot,
-                   COUNT(sh.sale_id) AS tx,
-                   IFNULL(SUM(sh.total_amount), 0) AS gross
-            FROM SALES_HEADERS sh
-            WHERE {where_clause}
-            GROUP BY HOUR(sh.sale_date)
-            ORDER BY HOUR(sh.sale_date)
-            """,
-            tuple(params),
-        )
-        hour_rows = cur.fetchall()
-        by_hour = {int(row[0]): {'transactions': int(row[1] or 0), 'gross': float(row[2] or 0)} for row in hour_rows}
-
-        hourly_sales = []
-        for hour in range(6, 23):
-            bucket = by_hour.get(hour, {'transactions': 0, 'gross': 0})
-            hourly_sales.append(
-                {
-                    'hour': hour,
-                    'label': f'{hour:02d}:00',
-                    'transactions': bucket['transactions'],
-                    'gross': round(bucket['gross'], 2),
-                }
-            )
-
-        # Top products + category
-        cur.execute(
-            f"""
-            SELECT
-                p.product_id,
-                p.product_name_official,
-                p.category_type,
-                IFNULL(SUM(sd.quantity_sold), 0) AS units_sold,
-                IFNULL(SUM((sd.quantity_sold * sd.price_at_sale) - sd.discount_applied), 0) AS net_sales
-            FROM SALES_HEADERS sh
-            JOIN SALES_DETAILS sd ON sh.sale_id = sd.sale_id
-            JOIN BRANCH_INVENTORY bi ON sd.inventory_id = bi.inventory_id
-            JOIN PRODUCTS p ON bi.product_id = p.product_id
-            WHERE {where_clause}
-            GROUP BY p.product_id, p.product_name_official, p.category_type
-            ORDER BY net_sales DESC
-            LIMIT 10
-            """,
-            tuple(params),
-        )
-        top_products = [
-            {
-                'product_id': row[0],
-                'product_name': row[1],
-                'category': row[2],
-                'units_sold': int(row[3] or 0),
-                'net_sales': round(float(row[4] or 0), 2),
-            }
-            for row in cur.fetchall()
-        ]
-
-        cur.execute(
-            f"""
-            SELECT
-                p.category_type,
-                IFNULL(SUM((sd.quantity_sold * sd.price_at_sale) - sd.discount_applied), 0) AS net_sales
-            FROM SALES_HEADERS sh
-            JOIN SALES_DETAILS sd ON sh.sale_id = sd.sale_id
-            JOIN BRANCH_INVENTORY bi ON sd.inventory_id = bi.inventory_id
-            JOIN PRODUCTS p ON bi.product_id = p.product_id
-            WHERE {where_clause}
-            GROUP BY p.category_type
-            ORDER BY net_sales DESC
-            """,
-            tuple(params),
-        )
-        category_rows = cur.fetchall()
-        category_total = sum(float(row[1] or 0) for row in category_rows)
-        top_categories = [
-            {
-                'category': row[0],
-                'net_sales': round(float(row[1] or 0), 2),
-                'share_percent': round(((float(row[1] or 0) / category_total) * 100), 2) if category_total > 0 else 0,
-            }
-            for row in category_rows
-        ]
-
-        # Refund / void analytics
-        refund_where = ['DATE(sr.return_date) = %s']
-        refund_params = [selected_date]
-        if branch_scope is not None:
-            refund_where.append('sr.branch_id = %s')
-            refund_params.append(branch_scope)
-        if cashier_id not in [None, '', 'all']:
-            refund_where.append('sr.user_id = %s')
-            refund_params.append(int(cashier_id))
-
-        cur.execute(
-            f"""
-            SELECT
-                COUNT(sr.return_id),
-                IFNULL(SUM(sr.total_refund_amount), 0)
-            FROM SALES_RETURNS sr
-            WHERE {' AND '.join(refund_where)}
-            """,
-            tuple(refund_params),
-        )
-        refunds_row = cur.fetchone()
-
-        void_where = ["DATE(sh.sale_date) = %s", "sh.customer_type = 'VOIDED'"]
-        void_params = [selected_date]
-        if branch_scope is not None:
-            void_where.append('sh.branch_id = %s')
-            void_params.append(branch_scope)
-        if cashier_id not in [None, '', 'all']:
-            void_where.append('sh.user_id = %s')
-            void_params.append(int(cashier_id))
-
-        cur.execute(
-            f"""
-            SELECT COUNT(sh.sale_id)
-            FROM SALES_HEADERS sh
-            WHERE {' AND '.join(void_where)}
-            """,
-            tuple(void_params),
-        )
-        void_count = int(cur.fetchone()[0] or 0)
-
-        cur.execute(
-            f"""
-            SELECT sr.return_reason, COUNT(sr.return_id), IFNULL(SUM(sr.total_refund_amount), 0)
-            FROM SALES_RETURNS sr
-            WHERE {' AND '.join(refund_where)}
-            GROUP BY sr.return_reason
-            ORDER BY COUNT(sr.return_id) DESC
-            """,
-            tuple(refund_params),
-        )
-        refund_by_reason = [
-            {
-                'reason': row[0],
-                'count': int(row[1] or 0),
-                'amount': round(float(row[2] or 0), 2),
-            }
-            for row in cur.fetchall()
-        ]
-
-        cur.execute(
-            f"""
-            SELECT u.full_name,
-                   IFNULL(SUM(sh.discount_total), 0) AS discounts,
-                   COUNT(sh.sale_id) AS tx
-            FROM SALES_HEADERS sh
-            JOIN USERS u ON sh.user_id = u.user_id
-            WHERE {where_clause}
-            GROUP BY u.full_name
-            ORDER BY discounts DESC
-            """,
-            tuple(params),
-        )
-        discount_by_cashier = [
-            {
-                'cashier': row[0],
-                'discounts': round(float(row[1] or 0), 2),
-                'transactions': int(row[2] or 0),
-            }
-            for row in cur.fetchall()
-        ]
-
-        # Profit estimate (COGS-based)
-        cur.execute(
-            f"""
-            SELECT
-                IFNULL(SUM((sd.quantity_sold * sd.price_at_sale) - sd.discount_applied), 0) AS net_sales,
-                IFNULL(SUM(sd.quantity_sold * IFNULL(costs.unit_cost, 0)), 0) AS est_cogs
-            FROM SALES_HEADERS sh
-            JOIN SALES_DETAILS sd ON sh.sale_id = sd.sale_id
-            JOIN BRANCH_INVENTORY bi ON sd.inventory_id = bi.inventory_id
-            LEFT JOIN (
-                SELECT product_id, AVG(cost_per_unit) AS unit_cost
-                FROM PRODUCT_SUPPLIER_LINK
-                GROUP BY product_id
-            ) costs ON costs.product_id = bi.product_id
-            WHERE {where_clause}
-            """,
-            tuple(params),
-        )
-        profit_row = cur.fetchone()
-        est_net_sales = float(profit_row[0] or 0)
-        est_cogs = float(profit_row[1] or 0)
-
-        # Reconciliation by shift
-        recon_where = ['DATE(cs.start_time) = %s']
-        recon_params = [selected_date]
-        if branch_scope is not None:
-            recon_where.append('cs.branch_id = %s')
-            recon_params.append(branch_scope)
-        if cashier_id not in [None, '', 'all']:
-            recon_where.append('cs.user_id = %s')
-            recon_params.append(int(cashier_id))
-
-        cur.execute(
-            f"""
-            SELECT
-                cs.shift_id,
-                u.full_name,
-                cs.status,
-                cs.expected_cash,
-                cs.actual_cash,
-                cs.discrepancy,
-                IFNULL(SUM(CASE WHEN sh.payment_method = 'CASH' AND sh.customer_type != 'VOIDED' THEN sh.total_amount ELSE 0 END), 0) AS cash_sales,
-                IFNULL(SUM(CASE WHEN sh.payment_method != 'CASH' AND sh.customer_type != 'VOIDED' THEN sh.total_amount ELSE 0 END), 0) AS non_cash_sales
-            FROM CASHIER_SHIFTS cs
-            JOIN USERS u ON cs.user_id = u.user_id
-            LEFT JOIN SALES_HEADERS sh ON sh.shift_id = cs.shift_id
-            WHERE {' AND '.join(recon_where)}
-            GROUP BY cs.shift_id, u.full_name, cs.status, cs.expected_cash, cs.actual_cash, cs.discrepancy
-            ORDER BY cs.start_time DESC
-            LIMIT 20
-            """,
-            tuple(recon_params),
-        )
-        reconciliation = [
-            {
-                'shift_id': row[0],
-                'cashier': row[1],
-                'status': row[2],
-                'expected_cash': float(row[3]) if row[3] is not None else None,
-                'actual_cash': float(row[4]) if row[4] is not None else None,
-                'discrepancy': float(row[5]) if row[5] is not None else None,
-                'cash_sales': round(float(row[6] or 0), 2),
-                'non_cash_sales': round(float(row[7] or 0), 2),
-            }
-            for row in cur.fetchall()
-        ]
-
-        # KPI alerts
-        refund_count = int(refunds_row[0] or 0)
-        refund_amount = float(refunds_row[1] or 0)
-        gross_today = float(today['gross'] or 0)
-        refund_rate = (refund_amount / gross_today) * 100 if gross_today > 0 else 0
-        avg_basket = (today['net'] / today['transactions']) if today['transactions'] > 0 else 0
-        avg_basket_yesterday = (yesterday['net'] / yesterday['transactions']) if yesterday['transactions'] > 0 else 0
-
-        alerts = []
-        if refund_rate >= 8:
-            alerts.append({'type': 'warning', 'message': f'High refund rate at {refund_rate:.1f}% of gross sales.'})
-        if void_count >= 5:
-            alerts.append({'type': 'warning', 'message': f'Voided receipts count is elevated ({void_count}).'})
-        if avg_basket_yesterday > 0 and avg_basket < (avg_basket_yesterday * 0.8):
-            alerts.append({'type': 'info', 'message': 'Average basket dropped more than 20% vs yesterday.'})
-        if this_week['net'] < last_week['net'] and last_week['net'] > 0:
-            alerts.append({'type': 'info', 'message': 'Net sales are below last week performance.'})
-
-        return jsonify(
-            {
-                'filters': {
-                    'branch_id': branch_scope,
-                    'cashier_id': int(cashier_id) if cashier_id not in [None, '', 'all'] else None,
-                    'date': selected_date.strftime('%Y-%m-%d'),
-                },
-                'comparison': {
-                    'today': today,
-                    'yesterday': yesterday,
-                    'this_week': this_week,
-                    'last_week': last_week,
-                },
-                'hourly_sales': hourly_sales,
-                'top_products': top_products,
-                'top_categories': top_categories,
-                'refund_analytics': {
-                    'refund_count': refund_count,
-                    'refund_amount': round(refund_amount, 2),
-                    'void_count': void_count,
-                    'refund_by_reason': refund_by_reason,
-                    'discount_by_cashier': discount_by_cashier,
-                },
-                'profit_view': {
-                    'net_sales': round(est_net_sales, 2),
-                    'estimated_cogs': round(est_cogs, 2),
-                    'estimated_gross_profit': round(est_net_sales - est_cogs, 2),
-                },
-                'reconciliation': reconciliation,
-                'alerts': alerts,
-            }
-        ), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        cur.close()
-
-
-@pos_bp.route('/pos/transactions', methods=['GET'])
-@jwt_required()
-def get_transactions_report():
-    claims = get_jwt()
-    if claims.get('role') not in ['admin', 'manager']:
-        return jsonify({'message': 'Access Denied.'}), 403
-
-    target_date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
-    search = (request.args.get('search') or '').strip()
-    payment_method = (request.args.get('payment_method') or '').strip().upper()
-    cashier_id = request.args.get('cashier_id')
-    page = max(1, int(request.args.get('page', 1)))
-    page_size = min(100, max(1, int(request.args.get('page_size', 20))))
-    offset = (page - 1) * page_size
-
-    try:
-        branch_scope = _resolve_branch_scope(claims, request.args.get('branch_id'))
-    except PermissionError as auth_error:
-        return jsonify({'message': str(auth_error)}), 403
+    cashier_id_filter = request.args.get('cashier_id', None)
 
     cur = mysql.connection.cursor()
     try:
-        where_parts = ['DATE(sh.sale_date) = %s']
-        params = [target_date]
+        params = [current_branch_id, date_from, date_to]
 
-        if branch_scope is not None:
-            where_parts.append('sh.branch_id = %s')
-            params.append(branch_scope)
-        if cashier_id not in [None, '', 'all']:
-            where_parts.append('sh.user_id = %s')
-            params.append(int(cashier_id))
-        if payment_method and payment_method != 'ALL':
-            where_parts.append('UPPER(sh.payment_method) = %s')
-            params.append(payment_method)
-        if search:
-            where_parts.append('(CAST(sh.sale_id AS CHAR) LIKE %s OR u.full_name LIKE %s)')
-            like_value = f'%{search}%'
-            params.extend([like_value, like_value])
+        cashier_filter_sql = ""
+        if cashier_id_filter:
+            cashier_filter_sql = "AND sh.user_id = %s"
+            params.append(cashier_id_filter)
 
-        where_clause = ' AND '.join(where_parts)
-
-        cur.execute(
-            f"""
-            SELECT COUNT(*)
-            FROM SALES_HEADERS sh
-            JOIN USERS u ON sh.user_id = u.user_id
-            WHERE {where_clause}
-            """,
-            tuple(params),
-        )
-        total_records = int(cur.fetchone()[0] or 0)
-
-        data_params = list(params)
-        data_params.extend([page_size, offset])
-
-        cur.execute(
-            f"""
-            SELECT
-                sh.sale_id,
-                DATE_FORMAT(sh.sale_date, '%%Y-%%m-%%d %%H:%%i:%%s') AS sale_time,
-                u.full_name,
-                sh.payment_method,
+        cur.execute(f"""
+            SELECT 
+                DATE(sh.sale_date)                                                    AS sale_date,
+                TIME(sh.sale_date)                                                    AS sale_time,
+                u.full_name                                                           AS cashier,
+                sh.trx_no,
+                sh.invoice_no,
+                COALESCE(p.product_id, 'N/A')                                        AS item_code,
+                COALESCE(p.product_name_receipt, 'Unknown Item')                     AS description,
+                sd.price_at_sale                                                      AS selling_price,
+                sd.price_level,
+                sd.quantity_sold,
+                (sd.quantity_sold * sd.price_at_sale)                                AS gross_sales,
+                IFNULL((sd.quantity_sold * sd.cost_at_sale), 0)                      AS gross_cost,
+                CASE 
+                    WHEN (sd.quantity_sold * sd.price_at_sale) > 0 
+                    THEN ROUND((sd.discount_applied / (sd.quantity_sold * sd.price_at_sale)) * 100, 2)
+                    ELSE 0 
+                END                                                                   AS discount_pct,
+                sd.discount_applied                                                   AS discount_amt,
+                (
+                    (sd.quantity_sold * sd.price_at_sale) 
+                    - IFNULL((sd.quantity_sold * sd.cost_at_sale), 0) 
+                    - sd.discount_applied
+                )                                                                     AS net_profit,
+                sd.discount_tag,
                 sh.customer_type,
-                sh.total_amount,
-                sh.discount_total,
-                IFNULL((
-                    SELECT SUM(sr.total_refund_amount)
-                    FROM SALES_RETURNS sr
-                    WHERE sr.sale_id = sh.sale_id
-                ), 0) AS refunded_amount
+                sh.payment_method
             FROM SALES_HEADERS sh
-            JOIN USERS u ON sh.user_id = u.user_id
-            WHERE {where_clause}
-            ORDER BY sh.sale_date DESC
-            LIMIT %s OFFSET %s
-            """,
-            tuple(data_params),
-        )
+            JOIN SALES_DETAILS sd         ON sh.sale_id      = sd.sale_id
+            JOIN USERS u                  ON sh.user_id       = u.user_id
+            LEFT JOIN BRANCH_INVENTORY bi ON sd.inventory_id = bi.inventory_id
+            LEFT JOIN PRODUCTS p          ON bi.product_id   = p.product_id
+            WHERE sh.branch_id = %s
+              AND DATE(sh.sale_date) BETWEEN %s AND %s
+              AND (sh.customer_type IS NULL OR UPPER(TRIM(sh.customer_type)) != 'VOIDED')
+              {cashier_filter_sql}
+            ORDER BY sh.sale_date DESC, sh.trx_no ASC
+        """, tuple(params))
 
         rows = cur.fetchall()
-        transactions = [
-            {
-                'sale_id': row[0],
-                'sale_time': row[1],
-                'cashier': row[2],
-                'payment_method': row[3],
-                'customer_type': row[4],
-                'total_amount': round(float(row[5] or 0), 2),
-                'discount_total': round(float(row[6] or 0), 2),
-                'refunded_amount': round(float(row[7] or 0), 2),
-                'is_voided': str(row[4]).upper() == 'VOIDED',
-            }
-            for row in rows
-        ]
+        columns = [desc[0] for desc in cur.description]
 
-        return jsonify(
-            {
-                'date': target_date,
-                'page': page,
-                'page_size': page_size,
-                'total_records': total_records,
-                'total_pages': max(1, (total_records + page_size - 1) // page_size),
-                'transactions': transactions,
-            }
-        ), 200
+        line_items = []
+        for row in rows:
+            processed = []
+            for val in row:
+                if isinstance(val, timedelta):
+                    total_seconds = int(val.total_seconds())
+                    hours   = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    seconds = total_seconds % 60
+                    processed.append(f"{hours:02d}:{minutes:02d}:{seconds:02d}")
+                elif hasattr(val, 'strftime'):
+                    processed.append(str(val))
+                elif isinstance(val, (int, float)) and not isinstance(val, bool):
+                    processed.append(round(float(val), 2))
+                else:
+                    processed.append(val)
+            line_items.append(dict(zip(columns, processed)))
+
+        total_gross_sales  = sum(r['gross_sales']  for r in line_items)
+        total_gross_cost   = sum(r['gross_cost']   for r in line_items)
+        total_discount_amt = sum(r['discount_amt'] for r in line_items)
+        total_net_profit   = sum(r['net_profit']   for r in line_items)
+
+        return jsonify({
+            "status": "success",
+            "filters": {
+                "branch_id":  current_branch_id,
+                "month":      month_param,
+                "date_from":  date_from,
+                "date_to":    date_to,
+                "cashier_id": cashier_id_filter
+            },
+            "totals": {
+                "total_line_items":   len(line_items),
+                "total_gross_sales":  round(total_gross_sales, 2),
+                "total_gross_cost":   round(total_gross_cost, 2),
+                "total_discount_amt": round(total_discount_amt, 2),
+                "total_net_profit":   round(total_net_profit, 2),
+            },
+            "line_items": line_items
+        }), 200
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
     finally:
         cur.close()
 
-
-@pos_bp.route('/pos/export/daily-summary.csv', methods=['GET'])
-@jwt_required()
-def export_daily_summary_csv():
-    claims = get_jwt()
-    if claims.get('role') not in ['admin', 'manager']:
-        return jsonify({'message': 'Access Denied.'}), 403
-
-    target_date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
-    try:
-        branch_scope = _resolve_branch_scope(claims, request.args.get('branch_id'))
-    except PermissionError as auth_error:
-        return jsonify({'message': str(auth_error)}), 403
-
-    cur = mysql.connection.cursor()
-    try:
-        where_parts = ['DATE(sh.sale_date) = %s', "sh.customer_type != 'VOIDED'"]
-        params = [target_date]
-        if branch_scope is not None:
-            where_parts.append('sh.branch_id = %s')
-            params.append(branch_scope)
-
-        cur.execute(
-            f"""
-            SELECT
-                COUNT(sh.sale_id),
-                IFNULL(SUM(sh.total_amount), 0),
-                IFNULL(SUM(sh.tax_amount), 0),
-                IFNULL(SUM(sh.discount_total), 0)
-            FROM SALES_HEADERS sh
-            WHERE {' AND '.join(where_parts)}
-            """,
-            tuple(params),
-        )
-        sales_row = cur.fetchone()
-
-        refund_where = ['DATE(sr.return_date) = %s']
-        refund_params = [target_date]
-        if branch_scope is not None:
-            refund_where.append('sr.branch_id = %s')
-            refund_params.append(branch_scope)
-
-        cur.execute(
-            f"""
-            SELECT COUNT(sr.return_id), IFNULL(SUM(sr.total_refund_amount), 0)
-            FROM SALES_RETURNS sr
-            WHERE {' AND '.join(refund_where)}
-            """,
-            tuple(refund_params),
-        )
-        refund_row = cur.fetchone()
-
-        gross = float(sales_row[1] or 0)
-        refunds = float(refund_row[1] or 0)
-        rows = [
-            ['Date', 'Branch Scope', 'Transactions', 'Gross Sales', 'Refund Count', 'Refund Amount', 'Net Sales', 'VAT', 'Discounts'],
-            [
-                target_date,
-                'ALL' if branch_scope is None else branch_scope,
-                int(sales_row[0] or 0),
-                round(gross, 2),
-                int(refund_row[0] or 0),
-                round(refunds, 2),
-                round(gross - refunds, 2),
-                round(float(sales_row[2] or 0), 2),
-                round(float(sales_row[3] or 0), 2),
-            ],
-        ]
-        return _csv_response(f'daily-summary-{target_date}.csv', rows)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        cur.close()
-
-
-@pos_bp.route('/pos/export/transactions.csv', methods=['GET'])
-@jwt_required()
-def export_transactions_csv():
-    claims = get_jwt()
-    if claims.get('role') not in ['admin', 'manager']:
-        return jsonify({'message': 'Access Denied.'}), 403
-
-    target_date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
-    try:
-        branch_scope = _resolve_branch_scope(claims, request.args.get('branch_id'))
-    except PermissionError as auth_error:
-        return jsonify({'message': str(auth_error)}), 403
-
-    cur = mysql.connection.cursor()
-    try:
-        where_parts = ['DATE(sh.sale_date) = %s']
-        params = [target_date]
-        if branch_scope is not None:
-            where_parts.append('sh.branch_id = %s')
-            params.append(branch_scope)
-
-        cur.execute(
-            f"""
-            SELECT
-                sh.sale_id,
-                DATE_FORMAT(sh.sale_date, '%%Y-%%m-%%d %%H:%%i:%%s') AS sale_time,
-                u.full_name,
-                sh.payment_method,
-                sh.customer_type,
-                sh.total_amount,
-                sh.discount_total,
-                IFNULL((
-                    SELECT SUM(sr.total_refund_amount)
-                    FROM SALES_RETURNS sr
-                    WHERE sr.sale_id = sh.sale_id
-                ), 0) AS refunded_amount
-            FROM SALES_HEADERS sh
-            JOIN USERS u ON sh.user_id = u.user_id
-            WHERE {' AND '.join(where_parts)}
-            ORDER BY sh.sale_date DESC
-            """,
-            tuple(params),
-        )
-
-        rows = [
-            ['Sale ID', 'Sale Time', 'Cashier', 'Payment Method', 'Customer Type', 'Total Amount', 'Discount', 'Refunded Amount', 'Voided'],
-        ]
-        for row in cur.fetchall():
-            rows.append(
-                [
-                    row[0],
-                    row[1],
-                    row[2],
-                    row[3],
-                    row[4],
-                    round(float(row[5] or 0), 2),
-                    round(float(row[6] or 0), 2),
-                    round(float(row[7] or 0), 2),
-                    'YES' if str(row[4]).upper() == 'VOIDED' else 'NO',
-                ]
-            )
-
-        return _csv_response(f'transactions-{target_date}.csv', rows)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        cur.close()

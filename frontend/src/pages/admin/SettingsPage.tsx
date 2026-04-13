@@ -102,7 +102,7 @@ const RESET_SECTION_OPTIONS: Array<{
   },
 ];
 
-const PROD_API_BASE_URL = "https://web-production-2c7737.up.railway.app";
+const PROD_API_BASE_URL = "https://web-production-783f2.up.railway.app";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || PROD_API_BASE_URL;
 
 const TAB_CONFIG: Array<{
@@ -567,7 +567,7 @@ export default function SettingsPage() {
         activeItem="Settings"
       />
 
-      <div className="relative z-10 w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 flex flex-col gap-5">
+      <div className="relative z-10 w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 flex flex-col gap-4 sm:gap-5">
         <AdminHeader
           onMenuClick={() => setSidebarOpen(true)}
           currentTime={currentTime}
@@ -584,26 +584,26 @@ export default function SettingsPage() {
               System Configuration
             </p>
             <h2
-              className="font-bold text-2xl tracking-wide mt-1"
+              className="font-bold text-xl sm:text-2xl tracking-wide mt-1"
               style={{ color: "rgba(245,249,255,0.96)" }}
             >
               Admin Settings
             </h2>
-            <p className="text-sm mt-1" style={{ color: "rgba(218,232,255,0.74)" }}>
+            <p className="text-xs sm:text-sm mt-1" style={{ color: "rgba(218,232,255,0.74)" }}>
               Manage branch behavior, inventory rules, audit policies, and security defaults.
             </p>
           </div>
           <button
             type="button"
             onClick={handleSave}
-            className="flex items-center gap-2 h-11 px-5 rounded-2xl text-sm font-bold text-white transition-opacity hover:opacity-90"
+            className="flex items-center gap-2 h-9 sm:h-11 px-4 sm:px-5 rounded-2xl text-xs sm:text-sm font-bold text-white transition-opacity hover:opacity-90 self-start sm:self-auto"
             style={{
               background: "linear-gradient(180deg, #0f34f4 0%, #274fff 100%)",
               boxShadow: "0 16px 32px rgba(3,31,99,0.24)",
               border: "1px solid rgba(255,255,255,0.12)",
             }}
           >
-            <Save size={16} />
+            <Save size={14} className="sm:w-4 sm:h-4" />
             Save Settings
           </button>
         </div>
@@ -625,9 +625,9 @@ export default function SettingsPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-5">
+        <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 sm:gap-5">
           <div
-            className="rounded-2xl p-4 flex flex-col gap-2"
+            className="rounded-2xl p-3 sm:p-4 flex flex-col gap-2"
             style={{
               background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(233,241,255,0.96) 100%)",
               border: "1px solid rgba(77,108,196,0.24)",

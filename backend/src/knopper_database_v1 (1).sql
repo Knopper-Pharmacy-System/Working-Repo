@@ -382,3 +382,75 @@ LEFT JOIN GROCERIES gro ON p.product_id = gro.product_id
 -- Join Supplier Data
 LEFT JOIN PRODUCT_SUPPLIER_LINK psl ON p.product_id = psl.product_id
 LEFT JOIN SUPPLIERS s ON psl.supplier_id = s.supplier_id;
+
+-- ============================================================================
+-- EXCEL ANALYTICS TABLES (For Manager Dashboard)
+-- ============================================================================
+
+-- 23. EXCEL_UPLOADS (Tracks uploaded Excel files)
+CREATE TABLE EXCEL_UPLOADS (
+    upload_id INT PRIMARY KEY AUTO_INCREMENT,
+    branch_id INT COMMENT 'Branch that uploaded the file',
+    user_id INT COMMENT 'Manager who uploaded',
+    file_name VARCHAR(255) COMMENT 'Original filename',
+    file_type ENUM('sales', 'products', 'inventory') COMMENT 'Detected file type',
+    upload_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE COMMENT 'FALSE when replaced by newer upload',
+    FOREIGN KEY (branch_id) REFERENCES BRANCHES(branch_id),
+    FOREIGN KEY (user_id) REFERENCES USERS(user_id)
+);
+
+-- 24. SALES_ANALYTICS (Processed sales data from Excel)
+CREATE TABLE SALES_ANALYTICS (
+    sales_id INT PRIMARY KEY AUTO_INCREMENT,
+    upload_id INT COMMENT 'Links to the Excel upload',
+    transaction_date DATE,
+    cashier_name VARCHAR(255),
+    item_description TEXT,
+    gross_sales DECIMAL(10, 2),
+    net_profit DECIMAL(10, 2),
+    quantity_sold INT,
+    discount_amount DECIMAL(10, 2) DEFAULT 0,
+    transaction_time TIME,
+    invoice_number VARCHAR(100),
+    FOREIGN KEY (upload_id) REFERENCES EXCEL_UPLOADS(upload_id) ON DELETE CASCADE
+);
+
+-- 25. PRODUCT_CATALOG (Processed product data from Excel)
+CREATE TABLE PRODUCT_CATALOG (
+    catalog_id INT PRIMARY KEY AUTO_INCREMENT,
+    upload_id INT COMMENT 'Links to the Excel upload',
+    item_code VARCHAR(100),
+    item_description TEXT,
+    category VARCHAR(100),
+    selling_price DECIMAL(10, 2),
+    cost_price DECIMAL(10, 2),
+    current_stock INT,
+    supplier_name VARCHAR(255),
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (upload_id) REFERENCES EXCEL_UPLOADS(upload_id) ON DELETE CASCADE
+);
+
+-- 26. INVENTORY_ANALYTICS (Processed inventory data from Excel)
+CREATE TABLE INVENTORY_ANALYTICS (
+    inventory_id INT PRIMARY KEY AUTO_INCREMENT,
+    upload_id INT COMMENT 'Links to the Excel upload',
+    item_code VARCHAR(100),
+    item_description TEXT,
+    current_stock INT,
+    reorder_level INT,
+    last_restock_date DATE,
+    expiry_date DATE,
+    storage_location VARCHAR(255),
+    stock_status ENUM('NORMAL', 'LOW_STOCK', 'OUT_OF_STOCK', 'EXPIRED', 'NEAR_EXPIRY') DEFAULT 'NORMAL',
+    FOREIGN KEY (upload_id) REFERENCES EXCEL_UPLOADS(upload_id) ON DELETE CASCADE
+);
+
+-- Indexes for better performance
+CREATE INDEX idx_excel_uploads_branch ON EXCEL_UPLOADS(branch_id, file_type, is_active);
+CREATE INDEX idx_sales_analytics_upload ON SALES_ANALYTICS(upload_id);
+CREATE INDEX idx_sales_analytics_date ON SALES_ANALYTICS(transaction_date);
+CREATE INDEX idx_product_catalog_upload ON PRODUCT_CATALOG(upload_id);
+CREATE INDEX idx_inventory_analytics_upload ON INVENTORY_ANALYTICS(upload_id);
+CREATE INDEX idx_inventory_analytics_status ON INVENTORY_ANALYTICS(stock_status);

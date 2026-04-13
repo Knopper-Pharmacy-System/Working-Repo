@@ -214,7 +214,7 @@ type TransactionsResponse = {
   transactions: TransactionRow[];
 };
 
-const PROD_API_BASE_URL = "https://web-production-2c7737.up.railway.app";
+const PROD_API_BASE_URL = "https://web-production-783f2.up.railway.app";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || PROD_API_BASE_URL;
 
 const PANEL_CARD_STYLE = {
@@ -708,7 +708,7 @@ export default function AdminSalesReportPage() {
         activeItem="Sales Reports"
       />
 
-      <div className="relative z-10 w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 flex flex-col gap-5">
+      <div className="relative z-10 w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 flex flex-col gap-4 sm:gap-5">
         <AdminHeader
           onMenuClick={() => setSidebarOpen(true)}
           currentTime={currentTime}
@@ -725,21 +725,21 @@ export default function AdminSalesReportPage() {
               Sales Overview
             </p>
             <h2
-              className="font-bold text-2xl tracking-wide mt-1"
+              className="font-bold text-xl sm:text-2xl tracking-wide mt-1"
               style={{ color: "rgba(245,249,255,0.96)" }}
             >
               Sales Reports
             </h2>
-            <p className="text-sm mt-1" style={{ color: "rgba(218,232,255,0.74)" }}>
+            <p className="text-xs sm:text-sm mt-1" style={{ color: "rgba(218,232,255,0.74)" }}>
               Daily and shift-level performance from POS transactions.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <div
-              className="relative flex items-center gap-2 h-11 px-4 rounded-2xl"
+              className="relative flex items-center gap-2 h-9 sm:h-11 px-3 sm:px-4 rounded-2xl"
               style={{
-                minWidth: "220px",
+                minWidth: "180px",
                 background:
                   "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(226,235,255,0.93) 100%)",
                 border: "1px solid rgba(112,136,214,0.34)",
@@ -747,67 +747,67 @@ export default function AdminSalesReportPage() {
                   "0 16px 32px rgba(3,31,99,0.22), inset 0 1px 0 rgba(255,255,255,0.85)",
               }}
             >
-              <Calendar size={16} className="text-[#103182]" />
+              <Calendar size={14} className="sm:w-4 sm:h-4 text-[#103182]" />
               <input
                 type="date"
                 value={selectedDate}
                 max={toIsoDate(new Date())}
                 onChange={(event) => setSelectedDate(event.target.value)}
-                className="bg-transparent outline-none text-sm font-semibold text-[#103182]"
+                className="bg-transparent outline-none text-xs sm:text-sm font-semibold text-[#103182]"
               />
-              <ChevronDown size={16} className="text-[#103182] shrink-0" />
+              <ChevronDown size={14} className="sm:w-4 sm:h-4 text-[#103182] shrink-0" />
             </div>
 
             <button
               type="button"
               onClick={() => setRefreshVersion((value) => value + 1)}
-              className="h-11 px-4 rounded-2xl text-sm font-bold text-white transition-opacity hover:opacity-90 flex items-center gap-2"
+              className="h-9 sm:h-11 px-3 sm:px-4 rounded-2xl text-xs sm:text-sm font-bold text-white transition-opacity hover:opacity-90 flex items-center gap-1.5 sm:gap-2"
               style={{
                 background: "linear-gradient(180deg, #2449ff 0%, #1133f2 100%)",
                 border: "1px solid rgba(183,205,255,0.28)",
                 boxShadow: "0 12px 24px rgba(2,24,95,0.28)",
               }}
             >
-              <RefreshCw size={15} /> Refresh
+              <RefreshCw size={13} className="sm:w-4 sm:h-4" /> Refresh
             </button>
             <button
               type="button"
               onClick={() => exportCsv("summary")}
-              className="h-11 px-4 rounded-2xl text-sm font-bold text-[#062d8c] transition-opacity hover:opacity-90 flex items-center gap-2"
+              className="h-9 sm:h-11 px-3 sm:px-4 rounded-2xl text-xs sm:text-sm font-bold text-[#062d8c] transition-opacity hover:opacity-90 flex items-center gap-1.5 sm:gap-2"
               style={{
                 background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(235,242,255,0.96) 100%)",
                 border: "1px solid rgba(183,205,255,0.8)",
               }}
             >
-              <Download size={14} /> Export Summary CSV
+              <Download size={12} className="sm:w-4 sm:h-4" /> Export Summary
             </button>
             <button
               type="button"
               onClick={() => exportCsv("transactions")}
-              className="h-11 px-4 rounded-2xl text-sm font-bold text-[#062d8c] transition-opacity hover:opacity-90 flex items-center gap-2"
+              className="h-9 sm:h-11 px-3 sm:px-4 rounded-2xl text-xs sm:text-sm font-bold text-[#062d8c] transition-opacity hover:opacity-90 flex items-center gap-1.5 sm:gap-2"
               style={{
                 background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(235,242,255,0.96) 100%)",
                 border: "1px solid rgba(183,205,255,0.8)",
               }}
             >
-              <Download size={14} /> Export Transactions CSV
+              <Download size={12} className="sm:w-4 sm:h-4" /> Export Transactions
             </button>
             <button
               type="button"
               onClick={() => window.print()}
-              className="h-11 px-4 rounded-2xl text-sm font-bold text-[#062d8c] transition-opacity hover:opacity-90 flex items-center gap-2"
+              className="h-9 sm:h-11 px-3 sm:px-4 rounded-2xl text-xs sm:text-sm font-bold text-[#062d8c] transition-opacity hover:opacity-90 flex items-center gap-1.5 sm:gap-2"
               style={{
                 background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(235,242,255,0.96) 100%)",
                 border: "1px solid rgba(183,205,255,0.8)",
               }}
             >
-              <Printer size={14} /> Print / PDF
+              <Printer size={12} className="sm:w-4 sm:h-4" /> Print / PDF
             </button>
           </div>
         </div>
 
-        <div className="rounded-xl p-4" style={TABLE_CARD_STYLE}>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="rounded-xl p-3 sm:p-4" style={TABLE_CARD_STYLE}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">Branch</p>
               <select
@@ -816,7 +816,7 @@ export default function AdminSalesReportPage() {
                   setSelectedBranchId(event.target.value);
                   setTransactionPage(1);
                 }}
-                className="h-10 w-full rounded-xl border border-[#cfdaf7] px-3 text-sm font-semibold text-[#103182] bg-white"
+                className="h-9 sm:h-10 w-full rounded-xl border border-[#cfdaf7] px-3 text-xs sm:text-sm font-semibold text-[#103182] bg-white"
               >
                 {isAdminRole() ? <option value="all">All Branches</option> : null}
                 {reportBranches.map((branch) => (
@@ -834,7 +834,7 @@ export default function AdminSalesReportPage() {
                   setSelectedCashierId(event.target.value);
                   setTransactionPage(1);
                 }}
-                className="h-10 w-full rounded-xl border border-[#cfdaf7] px-3 text-sm font-semibold text-[#103182] bg-white"
+                className="h-9 sm:h-10 w-full rounded-xl border border-[#cfdaf7] px-3 text-xs sm:text-sm font-semibold text-[#103182] bg-white"
               >
                 <option value="all">All Cashiers</option>
                 {reportCashiers.map((cashier) => (
@@ -852,7 +852,7 @@ export default function AdminSalesReportPage() {
                   setTransactionPaymentFilter(event.target.value);
                   setTransactionPage(1);
                 }}
-                className="h-10 w-full rounded-xl border border-[#cfdaf7] px-3 text-sm font-semibold text-[#103182] bg-white"
+                className="h-9 sm:h-10 w-full rounded-xl border border-[#cfdaf7] px-3 text-xs sm:text-sm font-semibold text-[#103182] bg-white"
               >
                 <option value="ALL">All Payments</option>
                 <option value="CASH">Cash</option>
@@ -870,7 +870,7 @@ export default function AdminSalesReportPage() {
                   setTransactionPage(1);
                 }}
                 placeholder="e.g., 1042 or Maria"
-                className="h-10 w-full rounded-xl border border-[#cfdaf7] px-3 text-sm font-semibold text-[#103182] bg-white outline-none"
+                className="h-9 sm:h-10 w-full rounded-xl border border-[#cfdaf7] px-3 text-xs sm:text-sm font-semibold text-[#103182] bg-white outline-none"
               />
             </div>
           </div>

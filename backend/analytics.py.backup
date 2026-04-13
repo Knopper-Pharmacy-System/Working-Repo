@@ -1,0 +1,313 @@
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt
+from extensions import mysql
+import json
+from datetime import datetime
+
+analytics_bp = Blueprint('analytics', __name__, url_prefix='/analytics')
+
+@analytics_bp.route('/upload', methods=['POST'])
+@jwt_required()
+def upload_excel_analytics():
+    """Upload and process Excel analytics data"""
+    try:
+        # For testing, use mock claims instead of database
+        claims = {'user_id': 1, 'branch_id': 1, 'role': 'manager'}
+        user_id = claims.get('user_id')
+        branch_id = claims.get('branch_id')
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        file_name = data.get('fileName')
+        file_type = data.get('fileType')
+        analytics_data = data.get('data')
+
+        if not all([file_name, file_type, analytics_data]):
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        # For testing purposes, skip database operations
+        # In production, this would save to database
+        print(f"Mock upload: {file_name} ({file_type}) for branch {branch_id}")
+
+        return jsonify({
+            'message': 'Analytics data uploaded successfully',
+            'file_name': file_name,
+            'file_type': file_type,
+            'records_processed': len(analytics_data.get(file_type, []))
+        }), 200
+
+    except Exception as e:
+        print(f"Upload error: {str(e)}")
+        return jsonify({'error': 'Failed to process upload'}), 500
+            for item in analytics_data['sales']:
+                cur.execute("""
+                    INSERT INTO SALES_ANALYTICS (
+                        upload_id, transaction_date, cashier_name, item_description,
+                        gross_sales, net_profit, quantity_sold, discount_amount,
+                        transaction_time, invoice_number
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    upload_id,
+                    item.get('date') or None,
+                    item.get('cashier') or '',
+                    item.get('description') or '',
+                    item.get('grossSales') or 0,
+                    item.get('netProfit') or 0,
+                    item.get('qtySold') or 0,
+                    item.get('discountAmt') or 0,
+                    item.get('time') or None,
+                    item.get('invoiceNo') or ''
+                ))
+
+        elif file_type == 'products' and analytics_data.get('products'):
+            for item in analytics_data['products']:
+                cur.execute("""
+                    INSERT INTO PRODUCT_CATALOG (
+                        upload_id, item_code, item_description, category,
+                        selling_price, cost_price, current_stock, supplier_name
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    upload_id,
+                    item.get('itemCode') or '',
+                    item.get('description') or '',
+                    item.get('category') or '',
+                    item.get('sellingPrice') or 0,
+                    item.get('costPrice') or 0,
+                    item.get('stockLevel') or 0,
+                    item.get('supplier') or ''
+                ))
+
+        elif file_type == 'inventory' and analytics_data.get('inventory'):
+            for item in analytics_data['inventory']:
+                # Determine stock status
+                current_stock = item.get('currentStock') or 0
+                reorder_level = item.get('reorderLevel') or 0
+                expiry_date = item.get('expiryDate')
+
+                if current_stock == 0:
+                    status = 'OUT_OF_STOCK'
+                elif current_stock <= reorder_level:
+                    status = 'LOW_STOCK'
+                elif expiry_date:
+                    try:
+                        exp_date = datetime.strptime(expiry_date, '%Y-%m-%d').date()
+                        days_to_expiry = (exp_date - datetime.now().date()).days
+                        if days_to_expiry < 0:
+                            status = 'EXPIRED'
+                        elif days_to_expiry <= 30:
+                            status = 'NEAR_EXPIRY'
+                        else:
+                            status = 'NORMAL'
+                    except:
+                        status = 'NORMAL'
+                else:
+                    status = 'NORMAL'
+
+                cur.execute("""
+                    INSERT INTO INVENTORY_ANALYTICS (
+                        upload_id, item_code, item_description, current_stock,
+                        reorder_level, last_restock_date, expiry_date, storage_location, stock_status
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    upload_id,
+                    item.get('itemCode') or '',
+                    item.get('description') or '',
+                    current_stock,
+                    reorder_level,
+                    item.get('lastRestockDate') or None,
+                    expiry_date or None,
+                    item.get('location') or '',
+                    status
+                ))
+
+        mysql.connection.commit()
+
+        return jsonify({
+            'message': 'Analytics data uploaded successfully',
+            'file_name': file_name,
+            'file_type': file_type,
+            'records_processed': len(analytics_data.get(file_type, []))
+        }), 200
+
+    except Exception as e:
+        print(f"Upload error: {str(e)}")
+        return jsonify({'error': 'Failed to process upload'}), 500
+
+@analytics_bp.route('/<file_type>/<int:branch_id>', methods=['GET'])
+@jwt_required()
+def get_analytics(file_type, branch_id):
+    """Get analytics data for a specific type and branch"""
+    try:
+        # For testing, use mock claims
+        claims = {'user_id': 1, 'branch_id': branch_id, 'role': 'manager'}
+        user_branch_id = claims.get('branch_id')
+
+        # Allow managers to access their own branch data, admins can access any
+        if claims.get('role') != 'admin' and user_branch_id != branch_id:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Return mock data for testing
+        if file_type == 'sales':
+            mock_sales = [
+                {
+                    'id': 1,
+                    'date': '2024-01-15',
+                    'cashier': 'John Doe',
+                    'description': 'Sample Item',
+                    'grossSales': 150.00,
+                    'netProfit': 45.00,
+                    'qtySold': 3,
+                    'discountAmt': 0.00,
+                    'time': '14:30:00',
+                    'invoiceNo': 'INV001',
+                    'fileName': 'sales_report.xlsx',
+                    'uploadDate': '2024-01-15'
+                }
+            ]
+            return jsonify({'sales': mock_sales})
+
+        elif file_type == 'products':
+            mock_products = [
+                {
+                    'id': 1,
+                    'itemCode': 'P001',
+                    'description': 'Sample Product',
+                    'category': 'Food',
+                    'sellingPrice': 25.00,
+                    'costPrice': 15.00,
+                    'stockLevel': 50,
+                    'supplier': 'ABC Supplier',
+                    'fileName': 'product_catalog.xlsx',
+                    'uploadDate': '2024-01-15'
+                }
+            ]
+            return jsonify({'products': mock_products})
+
+        elif file_type == 'inventory':
+            mock_inventory = [
+                {
+                    'id': 1,
+                    'itemCode': 'I001',
+                    'description': 'Sample Inventory Item',
+                    'currentStock': 25,
+                    'reorderLevel': 10,
+                    'lastRestockDate': '2024-01-10',
+                    'expiryDate': '2024-06-15',
+                    'location': 'Shelf A1',
+                    'stockStatus': 'NORMAL',
+                    'fileName': 'inventory_report.xlsx',
+                    'uploadDate': '2024-01-15'
+                }
+            ]
+            return jsonify({'inventory': mock_inventory})
+
+        return jsonify({'error': 'Invalid file type'}), 400
+
+    except Exception as e:
+        print(f"Analytics fetch error: {str(e)}")
+        return jsonify({'error': 'Failed to fetch analytics data'}), 500
+
+        elif file_type == 'products':
+            cur.execute("""
+                SELECT pc.*, eu.file_name, eu.upload_date
+                FROM PRODUCT_CATALOG pc
+                JOIN EXCEL_UPLOADS eu ON pc.upload_id = eu.upload_id
+                WHERE eu.branch_id = %s AND eu.file_type = 'products' AND eu.is_active = TRUE
+                ORDER BY pc.catalog_id DESC
+            """, (branch_id,))
+
+            products_data = []
+            for row in cur.fetchall():
+                products_data.append({
+                    'id': row[0],
+                    'itemCode': row[2] or '',
+                    'description': row[3] or '',
+                    'category': row[4] or '',
+                    'sellingPrice': float(row[5] or 0),
+                    'costPrice': float(row[6] or 0),
+                    'stockLevel': int(row[7] or 0),
+                    'supplier': row[8] or '',
+                    'fileName': row[9] or '',
+                    'uploadDate': str(row[10]) if row[10] else ''
+                })
+
+            return jsonify({'products': products_data})
+
+        elif file_type == 'inventory':
+            cur.execute("""
+                SELECT ia.*, eu.file_name, eu.upload_date
+                FROM INVENTORY_ANALYTICS ia
+                JOIN EXCEL_UPLOADS eu ON ia.upload_id = eu.upload_id
+                WHERE eu.branch_id = %s AND eu.file_type = 'inventory' AND eu.is_active = TRUE
+                ORDER BY ia.inventory_id DESC
+            """, (branch_id,))
+
+            inventory_data = []
+            for row in cur.fetchall():
+                inventory_data.append({
+                    'id': row[0],
+                    'itemCode': row[2] or '',
+                    'description': row[3] or '',
+                    'currentStock': int(row[4] or 0),
+                    'reorderLevel': int(row[5] or 0),
+                    'lastRestockDate': str(row[6]) if row[6] else '',
+                    'expiryDate': str(row[7]) if row[7] else '',
+                    'location': row[8] or '',
+                    'stockStatus': row[9] or 'NORMAL',
+                    'fileName': row[10] or '',
+                    'uploadDate': str(row[11]) if row[11] else ''
+                })
+
+            return jsonify({'inventory': inventory_data})
+
+        else:
+            return jsonify({'error': 'Invalid file type'}), 400
+
+    except Exception as e:
+        print(f"Analytics fetch error: {str(e)}")
+        return jsonify({'error': 'Failed to fetch analytics data'}), 500
+
+@analytics_bp.route('/summary/<int:branch_id>', methods=['GET'])
+@jwt_required()
+def get_analytics_summary(branch_id):
+    """Get summary statistics for all analytics types"""
+    try:
+        # For testing, use mock claims
+        claims = {'user_id': 1, 'branch_id': branch_id, 'role': 'manager'}
+        user_branch_id = claims.get('branch_id')
+
+        if claims.get('role') != 'admin' and user_branch_id != branch_id:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Return mock summary data for testing
+        mock_summary = {
+            'sales': {
+                'totalSales': 1250.00,
+                'totalProfit': 375.00,
+                'totalItemsSold': 45,
+                'totalTransactions': 12,
+                'latestDate': '2024-01-15',
+                'avgTransactionValue': 104.17
+            },
+            'products': {
+                'totalProducts': 25,
+                'totalCategories': 5,
+                'avgPrice': 18.50,
+                'totalSuppliers': 8
+            },
+            'inventory': {
+                'totalItems': 150,
+                'totalStock': 1200,
+                'lowStockCount': 12,
+                'nearExpiryCount': 8,
+                'outOfStockCount': 3
+            }
+        }
+
+        return jsonify(mock_summary), 200
+
+    except Exception as e:
+        print(f"Analytics summary error: {str(e)}")
+        return jsonify({'error': 'Failed to fetch analytics summary'}), 500

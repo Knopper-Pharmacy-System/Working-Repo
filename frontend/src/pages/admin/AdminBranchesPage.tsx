@@ -71,7 +71,7 @@ type BranchRow = {
   inventoryValue: number;
 };
 
-const PROD_API_BASE_URL = "https://web-production-2c7737.up.railway.app";
+const PROD_API_BASE_URL = "https://web-production-783f2.up.railway.app";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || PROD_API_BASE_URL;
 const ITEMS_PER_PAGE = 10;
 
@@ -518,7 +518,7 @@ export default function AdminBranchesPage() {
         activeItem="Branches"
       />
 
-      <div className="relative z-10 w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 flex flex-col gap-5">
+      <div className="relative z-10 w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 flex flex-col gap-4 sm:gap-5">
         <AdminHeader
           onMenuClick={() => setSidebarOpen(true)}
           currentTime={currentTime}
@@ -535,21 +535,21 @@ export default function AdminBranchesPage() {
               Branch Network
             </p>
             <h2
-              className="font-bold text-2xl tracking-wide mt-1"
+              className="font-bold text-xl sm:text-2xl tracking-wide mt-1"
               style={{ color: "rgba(245,249,255,0.96)" }}
             >
               Branches Overview
             </h2>
-            <p className="text-sm mt-1" style={{ color: "rgba(218,232,255,0.74)" }}>
+            <p className="text-xs sm:text-sm mt-1" style={{ color: "rgba(218,232,255,0.74)" }}>
               Search, monitor, and drill into branch-level staffing and inventory health.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setIsCreateBranchOpen(true)}
-              className="h-11 px-4 rounded-2xl text-sm font-bold text-[#062d8c] transition-opacity hover:opacity-90"
+              className="h-9 sm:h-11 px-3 sm:px-4 rounded-2xl text-xs sm:text-sm font-bold text-[#062d8c] transition-opacity hover:opacity-90"
               style={{
                 background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(235,242,255,0.96) 100%)",
                 border: "1px solid rgba(183,205,255,0.8)",
@@ -560,14 +560,14 @@ export default function AdminBranchesPage() {
             <button
               type="button"
               onClick={() => setRefreshVersion((value) => value + 1)}
-              className="h-11 px-4 rounded-2xl text-sm font-bold text-white transition-opacity hover:opacity-90 flex items-center gap-2"
+              className="h-9 sm:h-11 px-3 sm:px-4 rounded-2xl text-xs sm:text-sm font-bold text-white transition-opacity hover:opacity-90 flex items-center gap-1.5 sm:gap-2"
               style={{
                 background: "linear-gradient(180deg, #2449ff 0%, #1133f2 100%)",
                 border: "1px solid rgba(183,205,255,0.28)",
                 boxShadow: "0 12px 24px rgba(2,24,95,0.28)",
               }}
             >
-              <RefreshCw size={15} /> Refresh
+              <RefreshCw size={13} className="sm:w-4 sm:h-4" /> Refresh
             </button>
           </div>
         </div>
@@ -598,46 +598,46 @@ export default function AdminBranchesPage() {
           </div>
         )}
 
-        <div className="rounded-[28px] p-5 sm:p-6" style={PANEL_CARD_STYLE}>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-            <div className="rounded-xl p-5" style={METRIC_CARD_STYLE}>
-              <p className="text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>
+        <div className="rounded-[28px] p-4 sm:p-5 lg:p-6" style={PANEL_CARD_STYLE}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-5">
+            <div className="rounded-xl p-3 sm:p-4 lg:p-5" style={METRIC_CARD_STYLE}>
+              <p className="text-sm sm:text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>
                 Total Branches
               </p>
-              <p className="mt-2 leading-none" style={{ color: "#062d8c", fontSize: "3rem", fontWeight: 800 }}>
+              <p className="mt-2 leading-none" style={{ color: "#062d8c", fontSize: "clamp(1.5rem, 6vw, 3rem)", fontWeight: 800 }}>
                 {branches.length}
               </p>
               <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600">
                 <Building2 size={14} /> Auto-discovered branches
               </div>
             </div>
-            <div className="rounded-xl p-5" style={METRIC_CARD_STYLE}>
-              <p className="text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>
+            <div className="rounded-xl p-3 sm:p-4 lg:p-5" style={METRIC_CARD_STYLE}>
+              <p className="text-sm sm:text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>
                 Healthy
               </p>
-              <p className="mt-2 leading-none" style={{ color: "#00a83d", fontSize: "3rem", fontWeight: 800 }}>
+              <p className="mt-2 leading-none" style={{ color: "#00a83d", fontSize: "clamp(1.5rem, 6vw, 3rem)", fontWeight: 800 }}>
                 {healthyCount}
               </p>
               <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600">
                 <ShieldCheck size={14} /> Stable branches
               </div>
             </div>
-            <div className="rounded-xl p-5" style={METRIC_CARD_STYLE}>
-              <p className="text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>
+            <div className="rounded-xl p-3 sm:p-4 lg:p-5" style={METRIC_CARD_STYLE}>
+              <p className="text-sm sm:text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>
                 Attention
               </p>
-              <p className="mt-2 leading-none" style={{ color: "#c89400", fontSize: "3rem", fontWeight: 800 }}>
+              <p className="mt-2 leading-none" style={{ color: "#c89400", fontSize: "clamp(1.5rem, 6vw, 3rem)", fontWeight: 800 }}>
                 {attentionCount}
               </p>
               <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600">
                 <TriangleAlert size={14} /> Low or critical stock
               </div>
             </div>
-            <div className="rounded-xl p-5" style={METRIC_CARD_STYLE}>
-              <p className="text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>
+            <div className="rounded-xl p-3 sm:p-4 lg:p-5" style={METRIC_CARD_STYLE}>
+              <p className="text-sm sm:text-base font-extrabold tracking-wide uppercase" style={{ color: "#062d8c" }}>
                 Staff Count
               </p>
-              <p className="mt-2 leading-none" style={{ color: "#1536ef", fontSize: "3rem", fontWeight: 800 }}>
+              <p className="mt-2 leading-none" style={{ color: "#1536ef", fontSize: "clamp(1.5rem, 6vw, 3rem)", fontWeight: 800 }}>
                 {totalUsers}
               </p>
               <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600">

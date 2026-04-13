@@ -25,6 +25,18 @@ import AdminFooter from "../../components/admin/AdminFooter";
 import LowStocksModal from "../../components/admin/LowStocksModal";
 import NearExpiryModal from "../../components/admin/NearExpiryModal";
 import { getToken } from "../../hooks/useAuth";
+import {
+  getDashboardMetrics as fetchDashboardMetrics,
+  getLowStockItems,
+  getNearExpiryItems,
+  getSalesTrend,
+  getStockDistribution,
+  type DashboardMetrics,
+  type LowStockItem,
+  type NearExpiryItem,
+  type SalesTrendData,
+  type StockDistributionData,
+} from "../../api/dashboard";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -51,28 +63,6 @@ interface ApiInventoryItem {
   expiry_date?: string | null;
   quantity_on_hand: number;
   price?: number;
-}
-
-interface LowStockRow {
-  inventoryId: number;
-  name: string;
-  quantity: number;
-  reorder: number;
-  status: "Critical" | "Low";
-}
-
-interface NearExpiryRow {
-  inventoryId: number;
-  name: string;
-  expiry: string;
-  daysLeft: number;
-}
-
-interface DashboardMetrics {
-  lowStockCount: number;
-  nearExpiryCount: number;
-  totalItemUnits: number;
-  inventoryValue: number;
 }
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -109,7 +99,7 @@ const salesTrendYear: SalesDataPoint[] = [
   { day: "Dec", sales: 285000 },
 ];
 
-const PROD_API_BASE_URL = "https://web-production-2c7737.up.railway.app";
+const PROD_API_BASE_URL = "https://web-production-783f2.up.railway.app";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || PROD_API_BASE_URL;
 
 const BRANCHES = [
@@ -129,8 +119,6 @@ const BRANCHES = [
 
 const TREND_TABS: TrendTab[] = ["Week", "Month", "Year"];
 const LOW_STOCK_THRESHOLD = 10;
-const CRITICAL_STOCK_THRESHOLD = 5;
-const NEAR_EXPIRY_DAYS = 30;
 
 const BRANCH_ID_BY_NAME: Record<string, number> = {
   "BMC MAIN": 1,
@@ -159,78 +147,6 @@ const TABLE_CARD_STYLE = {
   background: "linear-gradient(180deg, #ffffff 0%, #f4f7ff 100%)",
   boxShadow:
     "inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 28px rgba(11,37,97,0.09)",
-};
-
-const formatDate = (isoDate?: string | null): string => {
-  if (!isoDate) return "—";
-  const parsed = new Date(isoDate);
-  if (Number.isNaN(parsed.getTime())) return "—";
-  return parsed.toLocaleDateString("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  });
-};
-
-const daysUntil = (isoDate?: string | null): number => {
-  if (!isoDate) return Number.POSITIVE_INFINITY;
-  const parsed = new Date(isoDate);
-  if (Number.isNaN(parsed.getTime())) return Number.POSITIVE_INFINITY;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  parsed.setHours(0, 0, 0, 0);
-  return Math.ceil((parsed.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-};
-
-const getLowStockRows = (items: ApiInventoryItem[]): LowStockRow[] =>
-  items
-    .filter((item) => Number(item.quantity_on_hand) <= LOW_STOCK_THRESHOLD)
-    .sort(
-      (first, second) =>
-        Number(first.quantity_on_hand) - Number(second.quantity_on_hand),
-    )
-    .map((item) => ({
-      inventoryId: Number(item.inventory_id),
-      name: item.product_name,
-      quantity: Number(item.quantity_on_hand),
-      reorder: LOW_STOCK_THRESHOLD,
-      status:
-        Number(item.quantity_on_hand) <= CRITICAL_STOCK_THRESHOLD
-          ? "Critical"
-          : "Low",
-    }));
-
-const getNearExpiryRows = (items: ApiInventoryItem[]): NearExpiryRow[] =>
-  items
-    .map((item) => {
-      const daysLeft = daysUntil(item.expiry_date);
-      return {
-        inventoryId: Number(item.inventory_id),
-        name: item.product_name,
-        expiry: formatDate(item.expiry_date),
-        daysLeft,
-      };
-    })
-    .filter((item) => item.daysLeft >= 0 && item.daysLeft <= NEAR_EXPIRY_DAYS)
-    .sort((first, second) => first.daysLeft - second.daysLeft);
-
-const getDashboardMetrics = (items: ApiInventoryItem[]): DashboardMetrics => {
-  const lowStockRows = getLowStockRows(items);
-  const nearExpiryRows = getNearExpiryRows(items);
-
-  return {
-    lowStockCount: lowStockRows.length,
-    nearExpiryCount: nearExpiryRows.length,
-    totalItemUnits: items.reduce(
-      (total, item) => total + Number(item.quantity_on_hand || 0),
-      0,
-    ),
-    inventoryValue: items.reduce(
-      (total, item) =>
-        total + Number(item.quantity_on_hand || 0) * Number(item.price || 0),
-      0,
-    ),
-  };
 };
 
 const formatDeltaLabel = (
@@ -262,8 +178,12 @@ export default function AdminDashboardPage() {
   const [isLoadingDashboard, setIsLoadingDashboard] = useState<boolean>(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [refreshVersion, setRefreshVersion] = useState<number>(0);
-  const [previousMetrics, setPreviousMetrics] =
-    useState<DashboardMetrics | null>(null);
+  const [previousMetrics, setPreviousMetrics] = useState<DashboardMetrics | null>(null);
+  const [dashboardMetrics, setDashboardMetrics] = useState<DashboardMetrics | null>(null);
+  const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
+  const [nearExpiryItems, setNearExpiryItems] = useState<NearExpiryItem[]>([]);
+  const [salesTrendData, setSalesTrendData] = useState<SalesTrendData[]>([]);
+  const [stockDistributionData, setStockDistributionData] = useState<StockDistributionData[]>([]);
   const branchSelectRef = useRef<HTMLSelectElement | null>(null);
 
   useEffect(() => {
@@ -350,58 +270,118 @@ export default function AdminDashboardPage() {
     const loadDashboardData = async () => {
       setIsLoadingDashboard(true);
       setDashboardError(null);
-      setPreviousMetrics(
-        inventoryItems.length > 0 ? getDashboardMetrics(inventoryItems) : null,
-      );
+      setPreviousMetrics(dashboardMetrics);
 
       try {
-        const token = getToken();
-        if (!token) {
-          setDashboardError("No auth token found. Please log in again.");
-          setInventoryItems([]);
-          return;
-        }
-
         const branchId = BRANCH_ID_BY_NAME[selectedBranch] || 1;
-        const response = await fetch(
-          `${API_BASE_URL}/inventory/branch/${branchId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
 
-        const data = await response.json();
-        if (!response.ok) {
-          setDashboardError(
-            data.message || data.error || "Failed to load dashboard data.",
-          );
-          setInventoryItems([]);
-          return;
+        // Fetch all dashboard data in parallel
+        const [
+          metricsResponse,
+          lowStockResponse,
+          nearExpiryResponse,
+          salesTrendResponse,
+          stockDistributionResponse,
+          inventoryResponse
+        ] = await Promise.allSettled([
+          fetchDashboardMetrics(branchId),
+          getLowStockItems(branchId),
+          getNearExpiryItems(branchId),
+          getSalesTrend(branchId, trendTab.toLowerCase() as 'week' | 'month' | 'year'),
+          getStockDistribution(branchId),
+          // Keep the existing inventory fetch for backward compatibility
+          fetch(`${API_BASE_URL}/inventory/branch/${branchId}`, {
+            headers: {
+              Authorization: `Bearer ${getToken()}`,
+            },
+          }).then(res => res.json())
+        ]);
+
+        // Handle metrics
+        if (metricsResponse.status === 'fulfilled') {
+          setDashboardMetrics(metricsResponse.value);
+        } else {
+          console.error('Failed to load dashboard metrics:', metricsResponse.reason);
         }
 
-        const normalizedItems: ApiInventoryItem[] = Array.isArray(data)
-          ? data
-          : [];
-        setInventoryItems(normalizedItems);
+        // Handle low stock items
+        if (lowStockResponse.status === 'fulfilled') {
+          setLowStockItems(lowStockResponse.value);
+        } else {
+          console.error('Failed to load low stock items:', lowStockResponse.reason);
+          setLowStockItems([]);
+        }
+
+        // Handle near expiry items
+        if (nearExpiryResponse.status === 'fulfilled') {
+          setNearExpiryItems(nearExpiryResponse.value);
+        } else {
+          console.error('Failed to load near expiry items:', nearExpiryResponse.reason);
+          setNearExpiryItems([]);
+        }
+
+        // Handle sales trend
+        if (salesTrendResponse.status === 'fulfilled') {
+          setSalesTrendData(salesTrendResponse.value);
+        } else {
+          console.error('Failed to load sales trend:', salesTrendResponse.reason);
+          setSalesTrendData([]);
+        }
+
+        // Handle stock distribution
+        if (stockDistributionResponse.status === 'fulfilled') {
+          setStockDistributionData(stockDistributionResponse.value);
+        } else {
+          console.error('Failed to load stock distribution:', stockDistributionResponse.reason);
+          setStockDistributionData([]);
+        }
+
+        // Handle inventory items
+        if (inventoryResponse.status === 'fulfilled') {
+          const normalizedItems: ApiInventoryItem[] = Array.isArray(inventoryResponse.value)
+            ? inventoryResponse.value
+            : [];
+          setInventoryItems(normalizedItems);
+        } else {
+          console.error('Failed to load inventory items:', inventoryResponse.reason);
+          setInventoryItems([]);
+        }
+
         setLastSync(new Date());
-      } catch {
+      } catch (error) {
+        console.error('Dashboard loading error:', error);
         setDashboardError("Network error while loading dashboard data.");
         setInventoryItems([]);
+        setLowStockItems([]);
+        setNearExpiryItems([]);
+        setSalesTrendData([]);
+        setStockDistributionData([]);
+        setDashboardMetrics(null);
       } finally {
         setIsLoadingDashboard(false);
       }
     };
 
     loadDashboardData();
-  }, [refreshVersion, selectedBranch]);
+  }, [refreshVersion, selectedBranch, trendTab]);
 
-  const lowStockProducts = getLowStockRows(inventoryItems);
-  const nearExpiryProducts = getNearExpiryRows(inventoryItems);
-  const currentMetrics = getDashboardMetrics(inventoryItems);
+  const lowStockProducts = lowStockItems.map(item => ({
+    inventoryId: item.inventoryId,
+    name: item.name,
+    quantity: item.quantity,
+    reorder: item.reorder,
+    status: item.status
+  }));
+
+  const nearExpiryProducts = nearExpiryItems.map(item => ({
+    inventoryId: item.inventoryId,
+    name: item.name,
+    expiry: item.expiry,
+    daysLeft: item.daysLeft
+  }));
+
   const { lowStockCount, nearExpiryCount, totalItemUnits, inventoryValue } =
-    currentMetrics;
+    dashboardMetrics || { lowStockCount: 0, nearExpiryCount: 0, totalItemUnits: 0, inventoryValue: 0 };
 
   const handleSyncNow = () => setRefreshVersion((value) => value + 1);
 
@@ -453,11 +433,17 @@ export default function AdminDashboardPage() {
     stockHealthyCount += 1;
   });
 
-  const stockContribution: StockSegment[] = [
-    { name: "Healthy", value: stockHealthyCount, color: "#14e644" },
-    { name: "Low", value: stockLowCount, color: "#ff3b35" },
-    { name: "Near Expiry", value: stockNearExpiryCount, color: "#f3bf2c" },
-  ];
+  const stockContribution: StockSegment[] = stockDistributionData.length > 0
+    ? stockDistributionData.map(item => ({
+        name: item.name,
+        value: item.value,
+        color: item.color
+      }))
+    : [
+        { name: "Healthy", value: stockHealthyCount, color: "#14e644" },
+        { name: "Low", value: stockLowCount, color: "#ff3b35" },
+        { name: "Near Expiry", value: stockNearExpiryCount, color: "#f3bf2c" },
+      ];
 
   const hasStockContributionData = stockContribution.some(
     (entry) => entry.value > 0,
@@ -466,8 +452,9 @@ export default function AdminDashboardPage() {
     ? stockContribution
     : [{ name: "No Data", value: 1, color: "#cbd5e1" }];
 
-  const trendData: SalesDataPoint[] =
-    trendTab === "Week"
+  const trendData: SalesDataPoint[] = salesTrendData.length > 0
+    ? salesTrendData.map(item => ({ day: item.day, sales: item.sales }))
+    : trendTab === "Week"
       ? salesTrendWeek
       : trendTab === "Month"
         ? salesTrendMonth
